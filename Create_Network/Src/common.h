@@ -17,9 +17,9 @@
 #define KH_4 0xC
 
 #define MAC KH_2	//choose the MAC
-#define BROADCAST  0xFF;		//define the adresse of broadcast
-#define IS_CREATER 0x01;		//define if it is the creater of network
-#define IS_NOT_CREATER 0x0;	//define if it is not the creater of network
+#define BROADCAST  0xFF		//define the adresse of broadcast
+#define IS_CREATER 0x01		//define if it is the creater of network
+#define IS_NOT_CREATER 0x0	//define if it is not the creater of network
 
 #define WAIT_BEACON	0x0
 #define WAIT_MESSAGE	0x1A

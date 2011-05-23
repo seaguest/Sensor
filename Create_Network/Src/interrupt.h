@@ -7,6 +7,7 @@ void timer_wait_message();				//after sending beacon , wait for sending message
 void timer_wait_sleep();				//after sending message , wait for sleeping
 void timer_wait_beacon();				//after sleeping , wait for beacon
 void timer_host_wait_beacon();
+void timer_host_wait_message();
 
 void Button_Init();
 void Timer_Init();

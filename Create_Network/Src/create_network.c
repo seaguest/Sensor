@@ -93,12 +93,12 @@ interrupt(TIMERB0_VECTOR) Timer_B(void)
 			case WAIT_MESSAGE :
 				state = WAIT_SLEEP;
 				timer_wait_sleep();
-				Send_message(Message,255);
+				Send_message(Message,BROADCAST);
 				//TXString(wait_m, (sizeof wait_m));
 				break;
 			case WAIT_SLEEP :
 				state = WAIT_BEACON;	
-				if(HOST == IS_CREATER){
+				if(HOST == IS_CREATER ){
 					timer_host_wait_beacon();
 				}else{
 					timer_wait_beacon();
