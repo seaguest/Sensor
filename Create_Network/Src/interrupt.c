@@ -7,7 +7,7 @@ void wait_beacon_first(uint8_t ID_Beacon){			//synchronisation for the first tim
 	TBCCTL0 = CCIE;
 
 	if(MAC > ID_Beacon){
-		TBCCR0 = DUREE_SLOT*(MAC-ID_Beacon-1)+1;				// delay 1.5ms*MAC 
+		TBCCR0 = DUREE_SLOT*(MAC-ID_Beacon-1);				// delay 1.5ms*MAC 
 	}else if(MAC < ID_Beacon){
 		TBCCR0 = DUREE_CYCLE - DUREE_SLOT*(ID_Beacon - MAC +1);			//wait the next cycle		
 	}
@@ -24,11 +24,6 @@ void Button_Init(){
 	P1REN |=  0x04;
 	P1OUT |=  0x03;
 	P1IE  |=  0x04;
-
-	BSP_Init();
-//	MRFI_Init(); 
-//	MRFI_WakeUp();
-//	MRFI_RxOn(); 
 }
 
 void Scan_Init(void)				//open the timer of scan ; after the time over ; if not existe a network ;then create one

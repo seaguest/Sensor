@@ -5,11 +5,14 @@
 #include "uart.h"
 
 char Message[] = "bonjour " ;
-char wait_b[] = "wait beacon" ;
-char wait_m[] = "wait message" ;
-char wait_s[] = "wait sleep" ;
-uint8_t HOST ;
+char wait_b[] = "w_b " ;
+char wait_m[] = "w_m " ;
+char wait_s[] = "w_s " ;
+char beacon_OK[] = "b_ok " ;
+char message_OK[] = "m_ok " ;
+char sleep_OK[] = "s_ok " ;
 
+volatile uint8_t HOST;
 
 void Send_beacon(){				//send the packet of beacon
 	mrfiPacket_t beaconToSend;
@@ -24,12 +27,13 @@ void Send_beacon(){				//send the packet of beacon
 	
 	//send the beacon
 	MRFI_Transmit(&beaconToSend, MRFI_TX_TYPE_FORCED);
+	TXString(beacon_OK, (sizeof beacon_OK));
 }
 
 void Send_message(char Mess[] , uint8_t  Destination){	//send the message
 	mrfiPacket_t packetToSend;
 	uint8_t i;
-	packetToSend.frame[0] = strlen(Mess) + 9;//PAYLOAD_SIZE;
+	packetToSend.frame[0] = strlen(Mess) + 9 +1;//PAYLOAD_SIZE; add '\n' '\r'
 	packetToSend.frame[4] = MAC;
 	packetToSend.frame[8] = Destination;
 	packetToSend.frame[9] = FDATA; 
@@ -38,19 +42,24 @@ void Send_message(char Mess[] , uint8_t  Destination){	//send the message
 	for (i=0;i<strlen(Mess);i++) {
 		packetToSend.frame[i+10] = Mess[i];
 	}
+	packetToSend.frame[i+10] = '\r';
+//	packetToSend.frame[i+11] = '\r';
 	
 	//send the message
 	MRFI_Transmit(&packetToSend, MRFI_TX_TYPE_FORCED);
+	TXString(message_OK, (sizeof message_OK));
 }
 
 void Sleep(){
+	;	
+	TXString(sleep_OK, (sizeof sleep_OK));
 	//__bis_SR_register(GIE+LPM3_bits);	//in sleep and interrupt mode
 }
 
-int main( void )
-{
+void Init(){
 	WDTCTL = WDTPW + WDTHOLD;
-	P1DIR |=  0x03;
+	P1DIR |= 0x03;                            // P1.0 output
+	P1OUT |= 0x02;
 	BCSCTL3 |= LFXT1S_2;
 
 	Button_Init();
@@ -60,22 +69,25 @@ int main( void )
 	state = WAIT_BEACON;				//first time ;initialisation
 	ID_Network = NO_NETWORK;			//no network at first
 	HOST = IS_NOT_CREATER ;
+}
 
 
-	__bis_SR_register(GIE+LPM3_bits);
+int main( void )
+{
+	Init();
+	__bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ interrupt
 	return 0;
 }
 
-void Timer_B(void);
-interrupt(TIMERB0_VECTOR) Timer_B(void)
+void Timer_B0(void);
+interrupt(TIMERB0_VECTOR) Timer_B0(void)
 {
 	if(ID_Network == NO_NETWORK){
  		ID_Network = ID_NETWORK_CREATE;
   		HOST = IS_CREATER;
  		state = WAIT_MESSAGE;		//change the state
 		timer_host_wait_message();
-
-//Send_beacon();
+		Send_beacon();
 		P1OUT ^= 0x02;   			//jaune led
  	}else{
 		P1OUT ^= 0x01;   			//rouge led
@@ -87,14 +99,14 @@ interrupt(TIMERB0_VECTOR) Timer_B(void)
 				}else{
 					timer_wait_message();
 				}
-//				Send_beacon();
-				//TXString(wait_b, (sizeof wait_b));
+				TXString(wait_b, (sizeof wait_b));
+				Send_beacon();
 				break;
 			case WAIT_MESSAGE :
 				state = WAIT_SLEEP;
 				timer_wait_sleep();
+				TXString(wait_m, (sizeof wait_m));
 				Send_message(Message,BROADCAST);
-				//TXString(wait_m, (sizeof wait_m));
 				break;
 			case WAIT_SLEEP :
 				state = WAIT_BEACON;	
@@ -103,8 +115,8 @@ interrupt(TIMERB0_VECTOR) Timer_B(void)
 				}else{
 					timer_wait_beacon();
 				}
+				TXString(wait_s, (sizeof wait_s));
 				Sleep();
-				//TXString(wait_s, (sizeof wait_s));
 				break;
 			default:
 				break;		
@@ -118,6 +130,12 @@ interrupt(PORT1_VECTOR) Buttopn(void)
 	P1IFG &= ~0x04;
 	P1OUT ^=  0x03;
 	Scan_Init();		//open timer B for scan
+
+	//after press the button , we can send and recieve message 
+	BSP_Init();
+	MRFI_Init(); 
+	MRFI_WakeUp();
+	MRFI_RxOn(); 
 }
 
 
@@ -129,7 +147,7 @@ void MRFI_RxCompleteISR()
 
 	MRFI_Receive(&packet);
 
-	if(state == WAIT_BEACON){			//if we recieve a packet in state of "wait_beacon" , maybe it is a beancon
+	if(state == WAIT_BEACON && packet.frame[9] == FBEACON){			//if we recieve a packet in state of "wait_beacon" , maybe it is a beancon
 		ID_Network = packet.frame[10];	
 		ID_Beacon  = packet.frame[11];
 		wait_beacon_first(ID_Beacon);
@@ -147,7 +165,7 @@ void MRFI_RxCompleteISR()
 		output[7] = '\n';
 		output[8] = '\r';
 
-	}else if(state == WAIT_SLEEP){
+	}else if(state == WAIT_SLEEP && packet.frame[9] == FDATA){
 		for (i=10;i<packet.frame[0];i++) {
 			output[i-10]=packet.frame[i];
 			if (packet.frame[i]== 0) {

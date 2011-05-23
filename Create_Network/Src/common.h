@@ -24,6 +24,7 @@
 #define WAIT_BEACON	0x0
 #define WAIT_MESSAGE	0x1A
 #define WAIT_SLEEP	0x2A
+
 #define BEACON_SIZE     0x0B			 //define Beacon size
 #define PAYLOAD_SIZE    0x13 			//define Beacon size
 
