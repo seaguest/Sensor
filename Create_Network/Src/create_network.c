@@ -4,9 +4,12 @@
 #include "interrupt.h"
 #include "uart.h"
 
-#define MAC KH_2	//choose the MAC
-
 char Message[] = "bonjour " ;
+char wait_b[] = "wait beacon" ;
+char wait_m[] = "wait message" ;
+char wait_s[] = "wait sleep" ;
+uint8_t HOST ;
+
 
 void Send_beacon(){				//send the packet of beacon
 	mrfiPacket_t beaconToSend;
@@ -41,24 +44,30 @@ void Send_message(char Mess[] , uint8_t  Destination){	//send the message
 }
 
 void Sleep(){
-	__bis_SR_register(GIE+LPM3_bits);	//in sleep and interrupt mode
+	//__bis_SR_register(GIE+LPM3_bits);	//in sleep and interrupt mode
 }
+
+void TimerA0_Init(void)
+{
+	TACCTL0 = CCIE;                         // TACCR0 interrupt enabled
+	TACCR0 = 12000;				// delay 1s
+	TACTL = TASSEL_1 + MC_1;     		  // ACLK = VLO =  12KHz upmode
+}
+
 
 int main( void )
 {
 	WDTCTL = WDTPW + WDTHOLD;
 	P1DIR |=  0x03;
 	BCSCTL3 |= LFXT1S_2;
-	TACCTL0 = CCIE;
-	TACCR0 = 5000;
-	TACTL = MC_1+TASSEL_1;
-	
+
 	Button_Init();
 	Timer_Init();
 	Uart_Init();
 
-	state = WAIT_BEACON;		//first time ;initialisation
+	state = WAIT_BEACON;				//first time ;initialisation
 	ID_Network = NO_NETWORK;			//no network at first
+	HOST = IS_NOT_CREATER ;
 
 	BSP_Init();
 	MRFI_Init(); 
@@ -69,30 +78,41 @@ int main( void )
 	return 0;
 }
 
-
-void Timer_A(void);
-interrupt(TIMERA0_VECTOR) Timer_A(void)
+void Timer_B(void);
+interrupt(TIMERB0_VECTOR) Timer_B(void)
 {
-	switch(state){
-		case WAIT_BEACON : 
-			state = WAIT_MESSAGE;
-			wait_message();
-			Send_beacon();
-			break;
-		case WAIT_MESSAGE :
-			state = WAIT_SLEEP;
-			wait_sleep();
-			Send_message(Message,KH_1);
-			break;
-		case WAIT_SLEEP :
-			state = WAIT_BEACON;	
-			wait_beacon();
-			Sleep();
-			break;
-		default:
-			break;		
+	if(ID_Network == NO_NETWORK){
+ 		ID_Network = ID_NETWORK_CREATE;
+  		HOST = IS_CREATER;
+ 		state = WAIT_MESSAGE;		//change the state
+ 		timer_wait_message();
+ 		Send_beacon();
+		P1OUT ^= 0x02;   			//jaune led
+ 	}else{
+		P1OUT ^= 0x01;   			//rouge led
+		switch(state){
+			case WAIT_BEACON : 
+				state = WAIT_MESSAGE;
+				timer_wait_message();
+				Send_beacon();
+				//TXString(wait_b, (sizeof wait_b));
+				break;
+			case WAIT_MESSAGE :
+				state = WAIT_SLEEP;
+				timer_wait_sleep();
+				Send_message(Message,KH_1);
+				//TXString(wait_m, (sizeof wait_m));
+				break;
+			case WAIT_SLEEP :
+				state = WAIT_BEACON;	
+				timer_wait_beacon();
+				Sleep();
+				//TXString(wait_s, (sizeof wait_s));
+				break;
+			default:
+				break;		
+		}
 	}
-	P1OUT ^= 0x01;
 }
 
 void Buttopn(void);
@@ -101,18 +121,6 @@ interrupt(PORT1_VECTOR) Buttopn(void)
 	P1IFG &= ~0x04;
 	P1OUT ^=  0x03;
 	Scan_Init();		//open timer B for scan
-}
-
-// Timer B0 interrupt service routine
-void Scan_Network (void);
-interrupt(TIMERB0_VECTOR) Scan_Network(void)
-{
-	if(ID_Network == NO_NETWORK){
-		ID_Network = ID_NETWORK_CREATE;
-		Send_beacon();
-	}
-	P1OUT ^= 0x02;   
-	TBCCTL0 = ~CCIE;                         // TACCR1 interrupt enabled
 }
 
 

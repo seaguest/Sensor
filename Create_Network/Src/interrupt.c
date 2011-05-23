@@ -17,8 +17,8 @@ void wait_beacon_first(uint8_t ID_Beacon){			//synchronisation for the first tim
 
 //initialisation for timer A and timer b ; set mode
 void Timer_Init(){
-	TACTL|=TACLR; 
-	TACTL=TASSEL_1+MC_1;
+//	TACTL|=TACLR; 
+	TACTL=TASSEL_1 + MC_1;
 	TBCTL=TBSSEL_1 + MC_1;     		  // ACLK = VLO =  12KHz up
 }
 
@@ -37,18 +37,18 @@ void Scan_Init(void)				//open the timer of scan ; after the time over ; if not 
 	TBCCR0 = DUREE_SCAN;			 // delay duty scan
 }
 
-void wait_message(){				//after sending beacon , wait for sending message
-	TACCTL0=CCIE;
-	TACCR0 = DUREE_SLOT*(N_SLOT + 1 - MAC);			// delay TIME_SLOT*(N + 1 - MAC) 
+void timer_wait_message(){				//after sending beacon , wait for sending message
+	TBCCTL0 = CCIE;
+	TBCCR0 = DUREE_SLOT*(N_SLOT + 1 - MAC);			// delay TIME_SLOT*(N + 1 - MAC) 
 }
 
-void wait_sleep(){				//after sending message , wait for sleeping
-	TACCTL0=CCIE;
-	TACCR0 = DUREE_ACTIVE;					// wait the end of message 
+void timer_wait_sleep(){				//after sending message , wait for sleeping
+	TBCCTL0=CCIE;
+	TBCCR0 = DUREE_ACTIVE;					// wait the end of message 
 }
 
-void wait_beacon(){
-	TACCTL0=CCIE;
-	TACCR0 = DUREE_SLOT*MAC + DUREE_SLEEP;			//wait the end of sllep
+void timer_wait_beacon(){
+	TBCCTL0=CCIE;
+	TBCCR0 = DUREE_SLOT*MAC + DUREE_SLEEP;			//wait the end of sllep
 }
 
