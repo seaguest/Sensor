@@ -29,7 +29,7 @@ void Send_beacon(){				//send the packet of beacon
 void Send_message(char Mess[] , uint8_t  Destination){	//send the message
 	mrfiPacket_t packetToSend;
 	uint8_t i;
-	packetToSend.frame[0] = PAYLOAD_SIZE;
+	packetToSend.frame[0] = strlen(Mess) + 9;//PAYLOAD_SIZE;
 	packetToSend.frame[4] = MAC;
 	packetToSend.frame[8] = Destination;
 	packetToSend.frame[9] = FDATA; 
@@ -47,14 +47,6 @@ void Sleep(){
 	//__bis_SR_register(GIE+LPM3_bits);	//in sleep and interrupt mode
 }
 
-void TimerA0_Init(void)
-{
-	TACCTL0 = CCIE;                         // TACCR0 interrupt enabled
-	TACCR0 = 12000;				// delay 1s
-	TACTL = TASSEL_1 + MC_1;     		  // ACLK = VLO =  12KHz upmode
-}
-
-
 int main( void )
 {
 	WDTCTL = WDTPW + WDTHOLD;
@@ -69,10 +61,6 @@ int main( void )
 	ID_Network = NO_NETWORK;			//no network at first
 	HOST = IS_NOT_CREATER ;
 
-	BSP_Init();
-	MRFI_Init(); 
-	MRFI_WakeUp();
-	MRFI_RxOn(); 
 
 	__bis_SR_register(GIE+LPM3_bits);
 	return 0;
@@ -85,27 +73,36 @@ interrupt(TIMERB0_VECTOR) Timer_B(void)
  		ID_Network = ID_NETWORK_CREATE;
   		HOST = IS_CREATER;
  		state = WAIT_MESSAGE;		//change the state
- 		timer_wait_message();
- 		Send_beacon();
+		timer_host_wait_message();
+
+//Send_beacon();
 		P1OUT ^= 0x02;   			//jaune led
  	}else{
 		P1OUT ^= 0x01;   			//rouge led
 		switch(state){
 			case WAIT_BEACON : 
 				state = WAIT_MESSAGE;
-				timer_wait_message();
-				Send_beacon();
+				if(HOST == IS_CREATER){
+					timer_host_wait_message();
+				}else{
+					timer_wait_message();
+				}
+//				Send_beacon();
 				//TXString(wait_b, (sizeof wait_b));
 				break;
 			case WAIT_MESSAGE :
 				state = WAIT_SLEEP;
 				timer_wait_sleep();
-				Send_message(Message,KH_1);
+				Send_message(Message,255);
 				//TXString(wait_m, (sizeof wait_m));
 				break;
 			case WAIT_SLEEP :
 				state = WAIT_BEACON;	
-				timer_wait_beacon();
+				if(HOST == IS_CREATER){
+					timer_host_wait_beacon();
+				}else{
+					timer_wait_beacon();
+				}
 				Sleep();
 				//TXString(wait_s, (sizeof wait_s));
 				break;
@@ -147,11 +144,13 @@ void MRFI_RxCompleteISR()
 		output[4] = ID_Beacon/100 + '0';
 		output[5] = ID_Beacon%100/10 + '0';
 		output[6] = ID_Beacon%10 + '0'; 
+		output[7] = '\n';
+		output[8] = '\r';
 
 	}else if(state == WAIT_SLEEP){
-		for (i=10;i<PAYLOAD_SIZE;i++) {
+		for (i=10;i<packet.frame[0];i++) {
 			output[i-10]=packet.frame[i];
-			if (packet.frame[i]=='\r') {
+			if (packet.frame[i]== 0) {
 				output[i-10]='\n';
 				output[i-9]='\r';
 			}

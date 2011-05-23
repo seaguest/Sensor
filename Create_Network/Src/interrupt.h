@@ -6,6 +6,7 @@ void Scan_Init(void);				//open the timer of scan ; after the time over ; if not
 void timer_wait_message();				//after sending beacon , wait for sending message
 void timer_wait_sleep();				//after sending message , wait for sleeping
 void timer_wait_beacon();				//after sleeping , wait for beacon
+void timer_host_wait_beacon();
 
 void Button_Init();
 void Timer_Init();

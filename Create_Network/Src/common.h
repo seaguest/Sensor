@@ -16,19 +16,19 @@
 #define KH_3 0xB
 #define KH_4 0xC
 
-#define MAC KH_1	//choose the MAC
-#define BROADCAST 255;		//define the adresse of broadcast
-#define IS_CREATER 1;		//define if it is the creater of network
-#define IS_NOT_CREATER 0;	//define if it is not the creater of network
+#define MAC KH_2	//choose the MAC
+#define BROADCAST  0xFF;		//define the adresse of broadcast
+#define IS_CREATER 0x01;		//define if it is the creater of network
+#define IS_NOT_CREATER 0x0;	//define if it is not the creater of network
 
-#define WAIT_BEACON	0
-#define WAIT_MESSAGE	11
-#define WAIT_SLEEP	22
-#define BEACON_SIZE     11			 //define Beacon size
-#define PAYLOAD_SIZE    19 			//define Beacon size
+#define WAIT_BEACON	0x0
+#define WAIT_MESSAGE	0x1A
+#define WAIT_SLEEP	0x2A
+#define BEACON_SIZE     0x0B			 //define Beacon size
+#define PAYLOAD_SIZE    0x13 			//define Beacon size
 
-#define NO_NETWORK		0
-#define ID_NETWORK_CREATE	10
+#define NO_NETWORK		0x0
+#define ID_NETWORK_CREATE	0x0A
 
 // define the message which will be send
 //attention the length <= PAYLOAD_SIZE-1 = 18
@@ -51,7 +51,7 @@ volatile uint8_t  ID_Network ,ID_Beacon;	//indiquer ID de reseaux,  initialisati
 // en ms
 #define DUREE_ACTIVE 12*200
 // en ms
-#define DUREE_SLEEP (DUREE_CYCLE -DUREE_SLOT*N_SLOT - DUREE_ACTIVE)
+#define DUREE_SLEEP (DUREE_CYCLE -DUREE_SLOT*(N_SLOT+1) - DUREE_ACTIVE)
 
 
 typedef struct
