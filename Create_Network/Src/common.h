@@ -29,31 +29,38 @@
 #define PAYLOAD_SIZE    0x13 			//define Beacon size
 
 #define NO_NETWORK		0x0
-#define ID_NETWORK_CREATE	0x0A
-
-// define the message which will be send
-//attention the length <= PAYLOAD_SIZE-1 = 18
-volatile uint8_t  state ;			//indiquer l'etat ; initialisation 0
-volatile uint8_t  ID_Network ,ID_Beacon;	//indiquer ID de reseaux,  initialisation 0 (0 means no network)
+#define ID_NETWORK_CREATE	0x0F
 
 
 // Definition des flags
 #define FDATA 0x0
 #define FBEACON 0x1
 
+// en ms avec SMCLK = 8MHZ
+#define N_1MS 8000
+
 // en ms
-#define DUREE_SLOT 12*2
+#define DUREE_SLOT 2
 // 32 slots ?
 #define N_SLOT 32
 // en ms
-#define DUREE_CYCLE 12*500
+#define DUREE_CYCLE 500
 // en ms
-#define DUREE_SCAN 12*1000
+#define DUREE_SCAN 1000
 // en ms
-#define DUREE_ACTIVE 12*200
+#define DUREE_ACTIVE 200
 // en ms
 #define DUREE_SLEEP (DUREE_CYCLE -DUREE_SLOT*(N_SLOT+1) - DUREE_ACTIVE)
 
+typedef struct
+{
+	uint8_t state;				//first time ;initialisation
+	uint8_t ID_Network;			//no network at first
+	uint8_t HOST ;
+	uint8_t synchron	;			//if it had recieved beacon
+	uint8_t ID_Beacon;			//from who we get the beacon
+	uint16_t Counter; 			 
+} Status;
 
 typedef struct
 {
