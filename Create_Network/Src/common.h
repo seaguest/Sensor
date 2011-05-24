@@ -16,14 +16,15 @@
 #define KH_3 0xB
 #define KH_4 0xC
 
-#define MAC KH_2	//choose the MAC
+#define MAC KH_1	//choose the MAC
 #define BROADCAST  0xFF		//define the adresse of broadcast
 #define IS_CREATER 0x01		//define if it is the creater of network
 #define IS_NOT_CREATER 0x0	//define if it is not the creater of network
 
-#define WAIT_BEACON	0x0
-#define WAIT_MESSAGE	0x1A
-#define WAIT_SLEEP	0x2A
+#define WAIT_SCAN	0x0
+#define WAIT_BEACON	0x1F
+#define WAIT_MESSAGE	0x2F
+#define WAIT_SLEEP	0x3F
 
 #define BEACON_SIZE     0x0B			 //define Beacon size
 #define PAYLOAD_SIZE    0x13 			//define Beacon size

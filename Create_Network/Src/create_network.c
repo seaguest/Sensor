@@ -4,7 +4,7 @@
 #include "interrupt.h"
 #include "uart.h"
 
-char Message[] = "bonjour, c'est KH_2 "; // "hello ,this is KH_1"; //"bonjour, c'est KH_2 " ;// "hello ,this is KH_1"
+char Message[] =  "this is KH_1"; //"c'est KH_2 " ;// "this is KH_1"
 char wait_b[] = "w_b " ;
 char wait_m[] = "w_m " ;
 char wait_s[] = "w_s " ;
@@ -57,7 +57,7 @@ void Send_message(char Mess[] , uint8_t  Destination){	//send the message
 	
 	//send the message
 	MRFI_Transmit(&packetToSend, MRFI_TX_TYPE_FORCED);
-//	TXString(message_OK, (sizeof message_OK));
+	TXString(message_OK, (sizeof message_OK));
 }
 
 void Sleep(){
@@ -67,6 +67,7 @@ void Sleep(){
 }
 
 void update_synchron(){
+	etat.state = WAIT_SCAN;		//change the state
 	etat.synchron = 0;
 }
 
@@ -84,13 +85,12 @@ void Init(){
 	P1OUT |= 0x02;
 
 	Button_Init();
-	Uart_Init();
 
 	//open sunchrone again every 5s
-	//N_synchrone = 1000;			//5s
-	//Timer_synchrone();
+	N_synchrone = 1000;			//5s
+	Timer_synchrone();
 
-	etat.state = WAIT_BEACON;			//first time ;initialisation
+	etat.state = WAIT_SCAN;			//first time ;initialisation
 	etat.ID_Network = NO_NETWORK;			//no network at first
 	etat.HOST = IS_NOT_CREATER ;
 	etat.synchron = 0;
@@ -102,16 +102,8 @@ void Init(){
 int main( void )
 {
 	Init();
-	BSP_Init();
-	MRFI_Init(); 
-	MRFI_WakeUp();
-	MRFI_RxOn(); 
-
 	__bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ interrupt
-/*	while(1){
-		Send_message(Message,BROADCAST);
-	}
-*/
+	
 	return 0;
 }
 
@@ -132,12 +124,17 @@ void Timer_B0(void);
 interrupt(TIMERB0_VECTOR) Timer_B0(void)
 {
 	etat.Counter--;
+
+	if(etat.state == WAIT_MESSAGE && etat.Counter == MAC){
+		Send_message(Message,BROADCAST);
+	}
+
 	if(etat.Counter == 0){
 		Stop_Timer();
 		if(etat.ID_Network == NO_NETWORK){
 	 		etat.ID_Network = ID_NETWORK_CREATE;
 	  		etat.HOST = IS_CREATER;
-	 		etat.state = WAIT_MESSAGE;		//change the state
+	 		etat.state = WAIT_BEACON;		//change the state
 			etat.synchron = 1;
 
 			timer_host_wait_message(&etat);
@@ -148,30 +145,29 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 			switch(etat.state){
 				case WAIT_BEACON : 
 					etat.state = WAIT_MESSAGE;
-					if(etat.HOST == IS_CREATER){
-						timer_host_wait_message(&etat);
-					}else{
-						timer_wait_message(&etat);
-					}
+					timer_wait_sleep(&etat);
 					//TXString(wait_b, (sizeof wait_b));
-					Send_beacon();
+					//Send_message(Message,BROADCAST);
 					break;
 				case WAIT_MESSAGE :
 					etat.state = WAIT_SLEEP;
-					timer_wait_sleep(&etat);
-					//TXString(wait_m, (sizeof wait_m));
-					delay_3ms();
-					Send_message(Message,BROADCAST);
-					break;
-				case WAIT_SLEEP :
-					etat.state = WAIT_BEACON;	
 					if(etat.HOST == IS_CREATER ){
 						timer_host_wait_beacon(&etat);
 					}else{
 						timer_wait_beacon(&etat);
 					}
-					//TXString(wait_s, (sizeof wait_s));
+					//TXString(wait_m, (sizeof wait_m));
 					Sleep();
+					break;
+				case WAIT_SLEEP :
+					etat.state = WAIT_BEACON;	
+					if(etat.HOST == IS_CREATER){
+						timer_host_wait_message(&etat);
+					}else{
+						timer_wait_message(&etat);
+					}
+					//TXString(wait_s, (sizeof wait_s));
+					Send_beacon();
 					break;
 				default:
 					break;		
@@ -191,7 +187,10 @@ interrupt(PORT1_VECTOR) Buttopn(void)
 
 	//after press the button , we can send and recieve message 
 	BSP_Init();
-	MRFI_Init(); 
+	MRFI_Init();
+
+	Uart_Init();
+
 	MRFI_WakeUp();
 	MRFI_RxOn(); 
 }
@@ -203,14 +202,17 @@ void MRFI_RxCompleteISR()
 	char output[] = {"                   "};
 
 	MRFI_Receive(&packet);
-/*
-	if(etat.state == WAIT_BEACON && packet.frame[9] == FBEACON){			//if we recieve a packet in state of "wait_beacon" , maybe it is a beancon
+
+	if((etat.state == WAIT_SCAN ||etat.state == WAIT_BEACON) && packet.frame[9] == FBEACON){
+								//if we recieve a packet in state of "wait_beacon" or wait_scan , maybe it is a beancon
+		if(etat.synchron == 0){				//in scan or update
+			etat.synchron = 1;
+	 		etat.state = WAIT_SLEEP;		//in this state ; it can send beacon
+			wait_beacon_first(&etat); 
+		}
+
 		etat.ID_Network = packet.frame[10];		//attention, support only one network
 		etat.ID_Beacon  = packet.frame[11];		//the slot_num 
-		if(etat.synchron == 0){
-			etat.synchron = 1;
-			wait_beacon_first(&etat);
-		}
 
 		//show the ID_NETWORK
 		output[0] = etat.ID_Network/100 + '0';
@@ -225,21 +227,14 @@ void MRFI_RxCompleteISR()
 		output[7] = '\n';
 		output[8] = '\r';
 
-	}else if(etat.state == WAIT_SLEEP && packet.frame[9] == FDATA){
+	}else{
+//else if(etat.state == WAIT_MESSAGE && packet.frame[9] == FDATA){
 		for (i=10;i<packet.frame[0];i++) {
 			output[i-10]=packet.frame[i];
 			if (packet.frame[i]== '\r') {
 				output[i-10]='\n';
 				output[i-9]='\r';
 			}
-		}
-	}
-*/
-	for (i=10;i<packet.frame[0];i++) {
-		output[i-10]=packet.frame[i];
-		if (packet.frame[i]== '\r') {
-			output[i-10]='\n';
-			output[i-9]='\r';
 		}
 	}
 

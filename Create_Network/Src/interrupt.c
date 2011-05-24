@@ -10,7 +10,7 @@ void Timer_synchrone(){
 
 void wait_beacon_first(Status* s){			//synchronisation for the first time with the beacon received
 	if(MAC > s->ID_Beacon){
-		s->Counter = DUREE_SLOT*(MAC-s->ID_Beacon-1);				// delay 1.5ms*MAC 
+		s->Counter = DUREE_SLOT*(MAC-s->ID_Beacon-1)+1;				// delay 1.5ms*MAC 
 	}else if(MAC < s->ID_Beacon){
 		s->Counter = DUREE_CYCLE - DUREE_SLOT*(s->ID_Beacon - MAC +1);			//wait the next cycle		
 	}
