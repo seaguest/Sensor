@@ -4,7 +4,13 @@
 #include "interrupt.h"
 #include "uart.h"
 
-char Message[] =  "hellobonjourisis"; //"c'est KH_2 " ;// "this is KH_1
+char Message1[] =  "i  want 1 "; 
+char Message2[] =  "je veux 2 "; 
+char M1[] =  "i am 1    ";  
+char M2[] =  "i am 2    ";  
+char M3[] =  "i am 3    "; 
+char M4[] =  "i am 4    ";  
+
 Status etat;			//record all the status
 uint16_t  N_synchrone ;
 
@@ -24,7 +30,9 @@ void Send_beacon(){				//send the packet of beacon
 	}
 	
 	//send the beacon
-	MRFI_Transmit(&beaconToSend, MRFI_TX_TYPE_FORCED);
+	//MRFI_Transmit(&beaconToSend, MRFI_TX_TYPE_CCA) ;
+	MRFI_Transmit(&beaconToSend, MRFI_TX_TYPE_FORCED) ;
+
 }
 
 void Send_message(char Mess[] , uint8_t  Destination){	//send the message
@@ -43,6 +51,7 @@ void Send_message(char Mess[] , uint8_t  Destination){	//send the message
 //	packetToSend.frame[i+11] = '\r';
 	
 	//send the message
+	//MRFI_Transmit(&packetToSend, MRFI_TX_TYPE_CCA);
 	MRFI_Transmit(&packetToSend, MRFI_TX_TYPE_FORCED);
 }
 
@@ -81,7 +90,7 @@ void Init(){
 	etat.ID_Network = NO_NETWORK;			//no network at first
 	etat.HOST = IS_NOT_CREATER ;
 	etat.synchron = 0;
-	etat.MAC = 2;
+	etat.MAC = 3;
 	etat.ID_Beacon = BROADCAST;
 	etat.Counter = 0;
 }
@@ -140,7 +149,26 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 				case WAIT_MESSAGE :
 					etat.state = WAIT_SLEEP;
 					timer_wait_beacon(&etat);
-					Send_message(Message , BROADCAST);
+
+					//choose the message corresponding his MAC
+					switch(etat.MAC){
+						case 1 : 
+							Send_message(M1, BROADCAST);
+							break;
+						case 2 : 
+							Send_message(M2, BROADCAST);
+							break;
+						case 3 : 
+							Send_message(M3, BROADCAST);
+							break;
+						case 4 : 
+							Send_message(M4, BROADCAST);
+							break;
+						default: 
+							break;
+					}				
+					//Send_message(Message1 , (uint8_t)1);
+					//Send_message(Message2 , (uint8_t)2);
 					break;
 				case WAIT_SLEEP :
 					etat.state = WAIT_BEACON;	
@@ -181,7 +209,7 @@ void MRFI_RxCompleteISR()
 {
 	uint8_t i;
 	mrfiPacket_t packet;
-	char output[] = {"                            "};
+	char output[10] = "";
 
 	MRFI_Receive(&packet);
 
@@ -203,17 +231,24 @@ void MRFI_RxCompleteISR()
 		//show the MAC of the source
 		output[2] = etat.ID_Beacon/10 + '0';
 		output[3] = etat.ID_Beacon%10 + '0';
+		
+		TXString(output, 4) ;//(sizeof output));
 
 	}else if(packet.frame[9] == FDATA){
-		for (i=10;i<packet.frame[0];i++) {
-			output[i-10]=packet.frame[i];
-			if (packet.frame[i]== '\r') {
-				output[i-10]='\n';
-				output[i-9]='\r';
+		if(packet.frame[8] == etat.MAC || packet.frame[8] == BROADCAST){
+			for (i=10;i<packet.frame[0];i++) {
+				output[i-10]=packet.frame[i];
+				if (packet.frame[i]== '\r') {
+					output[i-10]='\n';
+					output[i-9]='\r';
+				}
 			}
+			TXString(output, (sizeof output));
+		}else{			//if the destination is not him, relay
+			//MRFI_Transmit(&packet, MRFI_TX_TYPE_CCA);
+			MRFI_Transmit(&packet, MRFI_TX_TYPE_FORCED);
 		}
 	}
-	TXString(output, (sizeof output));
 }
 
 
