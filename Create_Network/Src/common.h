@@ -16,9 +16,8 @@
 #define KH_3 0xB
 #define KH_4 0xC
 
-#define MAC KH_1	//choose the MAC
 #define BROADCAST  0xFF		//define the adresse of broadcast
-#define IS_CREATER 0x01		//define if it is the creater of network
+#define IS_CREATER 0x1F		//define if it is the creater of network
 #define IS_NOT_CREATER 0x0	//define if it is not the creater of network
 
 #define WAIT_SCAN	0x0
@@ -58,7 +57,8 @@ typedef struct
 	uint8_t state;				//first time ;initialisation
 	uint8_t ID_Network;			//no network at first
 	uint8_t HOST ;
-	uint8_t synchron	;			//if it had recieved beacon
+	uint8_t MAC ;
+	uint8_t synchron;			//if it had recieved beacon
 	uint8_t ID_Beacon;			//from who we get the beacon
 	uint16_t Counter; 			 
 } Status;
