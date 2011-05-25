@@ -6,6 +6,7 @@
 
 char Message1[] =  "i  want 1 "; 
 char Message2[] =  "je veux 2 "; 
+char MB[] =  "broadcast "; 
 char M1[] =  "i am 1    ";  
 char M2[] =  "i am 2    ";  
 char M3[] =  "i am 3    "; 
@@ -13,6 +14,11 @@ char M4[] =  "i am 4    ";
 
 Status etat;			//record all the status
 uint16_t  N_synchrone ;
+
+void delay(){
+	volatile uint16_t x = 10000;
+ 	while(x--);
+}
 
 void Send_beacon(){				//send the packet of beacon
 	mrfiPacket_t beaconToSend;
@@ -90,7 +96,7 @@ void Init(){
 	etat.ID_Network = NO_NETWORK;			//no network at first
 	etat.HOST = IS_NOT_CREATER ;
 	etat.synchron = 0;
-	etat.MAC = 3;
+	etat.MAC = 2;
 	etat.ID_Beacon = BROADCAST;
 	etat.Counter = 0;
 }
@@ -150,6 +156,7 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 					etat.state = WAIT_SLEEP;
 					timer_wait_beacon(&etat);
 
+/*
 					//choose the message corresponding his MAC
 					switch(etat.MAC){
 						case 1 : 
@@ -167,8 +174,15 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 						default: 
 							break;
 					}				
+
+*/	
+
 					//Send_message(Message1 , (uint8_t)1);
+					//delay();
 					//Send_message(Message2 , (uint8_t)2);
+					//delay();
+					//Send_message(MB , BROADCAST);
+
 					break;
 				case WAIT_SLEEP :
 					etat.state = WAIT_BEACON;	
@@ -208,7 +222,7 @@ interrupt(PORT1_VECTOR) Buttopn(void)
 void MRFI_RxCompleteISR()
 {
 	uint8_t i;
-	mrfiPacket_t packet;
+	mrfiPacket_t packet; 
 	char output[10] = "";
 
 	MRFI_Receive(&packet);
