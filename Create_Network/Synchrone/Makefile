@@ -45,5 +45,5 @@ uart.o:uart.c
 	@echo CC $<
 
 
-network: create_network.c bsp.o mrfi.o interrupt.o uart.o
+network: synchrone.c bsp.o mrfi.o interrupt.o uart.o
 	$(CC) ${CFLAGS} bsp.o mrfi.o interrupt.o uart.o -o $@ $<

@@ -2,8 +2,28 @@
 #include "interrupt.h"
 #include <mrfi.h> 
 
-void timer_wait_first(Status* s){			// wait for message
-	s->Counter = (uint16_t) ( DUREE_SLOT*(N_SLOT - s->ID_Beacon) + DUREE_ACTIVE + DUREE_SLEEP);				// delay 1.5ms*MAC 
+void timer_synchrone(Status* s){			// wait for message
+	if(s->HOST == IS_CREATER){
+		if(s->synchrone == 0){
+			s->synchrone = 1;
+			s->Counter = (uint16_t) ( DUREE_SLOT*(N_SLOT - s->ID_Beacon + 1)) ;				 
+		}else{
+			s->Counter = (uint16_t) ( DUREE_SLOT*(N_SLOT + 1)) ;				 
+		}
+	}else if(s->MAC > s->ID_Beacon){
+		s->Counter = (uint16_t) ( DUREE_SLOT*(N_SLOT - s->MAC + 1) );				 
+	}else{
+		s->Counter = (uint16_t) ( DUREE_SLOT*(N_SLOT - s->ID_Beacon + 1) );				 
+	}
+	Start_Timer();
+}
+
+void timer_send_beacon(Status* s){			// wait for message
+	if(s->MAC > s->ID_Beacon){
+		s->Counter = (uint16_t) ( DUREE_SLOT*(s->MAC - s->ID_Beacon ) );				 
+	}else{
+		s->Counter = (uint16_t) ( DUREE_SLOT*(s->MAC) );				 
+	}
 	Start_Timer();
 }
 
@@ -32,18 +52,13 @@ void Scan_Init(Status * s)				//open the timer of scan ; after the time over ; i
 	Start_Timer();
 }
 
-void timer_wait_message(Status * s){				//after sending beacon , wait for sending message
-	s->Counter = (uint16_t) (DUREE_SLOT*(N_SLOT + 1)); // - s->MAC));			// delay TIME_SLOT*(N + 1 - MAC) 
+void timer_message(Status * s){				//after sending message , wait for sleeping
+	s->Counter = (uint16_t) DUREE_ACTIVE;				 
 	Start_Timer();
 }
 
-void timer_wait_sleep(Status * s){				//after sending message , wait for sleeping
-	s->Counter = (uint16_t) DUREE_ACTIVE;					// wait the end of message 
-	Start_Timer();
-}
-
-void timer_wait_beacon(Status * s){
-	s->Counter = (uint16_t) DUREE_SLEEP ; //DUREE_SLOT*s->MAC + DUREE_SLEEP);			//wait the end of sllep
+void timer_sleep(Status * s){
+	s->Counter = (uint16_t) DUREE_SLEEP ; //DUREE_SLOT*s->MAC + DUREE_SLEEP);			 
 	Start_Timer();
 }
 
