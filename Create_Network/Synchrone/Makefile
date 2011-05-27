@@ -44,6 +44,9 @@ uart.o:uart.c
 	${CC} ${CFLAGS} -c $< -o $@
 	@echo CC $<
 
+send.o:send.c 
+	${CC} ${CFLAGS} -c $< -o $@
+	@echo CC $<
 
-network: synchrone.c bsp.o mrfi.o interrupt.o uart.o
-	$(CC) ${CFLAGS} bsp.o mrfi.o interrupt.o uart.o -o $@ $<
+network: synchrone.c bsp.o mrfi.o interrupt.o uart.o send.o
+	$(CC) ${CFLAGS} bsp.o mrfi.o interrupt.o uart.o send.o -o $@ $<
