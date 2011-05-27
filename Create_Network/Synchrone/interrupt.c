@@ -4,18 +4,13 @@
 
 void timer_synchrone(Status* s){			// wait for message
 	if(s->HOST == IS_CREATER){
-		if(s->synchrone == 0){
-			s->synchrone = 1;
-			s->Counter = (uint16_t) ( DUREE_SLOT*(N_SLOT - s->ID_Beacon + 1)) ;				 
-		}else{
-			s->Counter = (uint16_t) ( DUREE_SLOT*(N_SLOT + 1)) ;				 
-		}
+		s->Counter = (uint16_t) ( DUREE_SLOT*(N_SLOT + 1)) ;				 
 	}else if(s->MAC > s->ID_Beacon){
 		s->Counter = (uint16_t) ( DUREE_SLOT*(N_SLOT - s->MAC + 1) );				 
 	}else{
 		s->Counter = (uint16_t) ( DUREE_SLOT*(N_SLOT - s->ID_Beacon + 1) );				 
 	}
-	Start_Timer();
+	Start_Timer(s);
 }
 
 void timer_send_beacon(Status* s){			// wait for message
@@ -24,14 +19,20 @@ void timer_send_beacon(Status* s){			// wait for message
 	}else{
 		s->Counter = (uint16_t) ( DUREE_SLOT*(s->MAC) );				 
 	}
-	Start_Timer();
+	Start_Timer(s);
 }
 
 //initialisation for timer A and timer b ; set mode
-void Start_Timer(){
-	TBCTL=TBSSEL_2 + MC_1;     		  // ACLK = VLO =  12KHz up
-	TBCCTL0 = CCIE;                          // TACCR1 interrupt enabled
-	TBCCR0 = (uint16_t) N_1MS;				 // delay duty scan
+void Start_Timer(Status* s){
+	if(s->state == WAIT_SLEEP){
+		TBCTL=TBSSEL_1 + MC_1;     		  
+		TBCCTL0 = CCIE;                          // TACCR1 interrupt enabled
+		TBCCR0 = (uint16_t)(DUREE_SLEEP * 12) ;	 // DUREE_SLEEP * 1ms		
+	}else{
+		TBCTL=TBSSEL_2 + MC_1;     		  
+		TBCCTL0 = CCIE;                          // TACCR1 interrupt enabled
+		TBCCR0 = (uint16_t) N_1MS;		 // delay duty scan
+	}
 }
 
 void Stop_Timer(){
@@ -49,16 +50,16 @@ void Button_Init(){
 void Scan_Init(Status * s)				//open the timer of scan ; after the time over ; if not existe a network ;then create one
 {
 	s->Counter = (uint16_t) DUREE_SCAN;
-	Start_Timer();
+	Start_Timer(s);
 }
 
 void timer_message(Status * s){				//after sending message , wait for sleeping
 	s->Counter = (uint16_t) DUREE_ACTIVE;				 
-	Start_Timer();
+	Start_Timer(s);
 }
 
 void timer_sleep(Status * s){
-	s->Counter = (uint16_t) DUREE_SLEEP ; //DUREE_SLOT*s->MAC + DUREE_SLEEP);			 
-	Start_Timer();
+	s->Counter = 1;	//(uint16_t) DUREE_SLEEP ; //DUREE_SLOT*s->MAC + DUREE_SLEEP);			 
+	Start_Timer(s);
 }
 

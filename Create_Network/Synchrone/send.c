@@ -5,26 +5,75 @@
 #include <mrfi.h> 
 #include "send.h"
 
+void SendmPacket(mPacket *src ,mrfiPacket_t *dst){
+	uint8_t i;
+	dst->frame[0] = src->length;
+	for(i = 0;i <4;i++){
+		dst->frame[i+1] = src->src[i];
+	}
+	for(i = 0;i <4;i++){
+		dst->frame[i+5] = src->dst[i];
+	}
+	dst->frame[9] = src->flag;
+	if(src->flag == FDATA){
+		for(i = 0;i < src->length-9;i++){
+			dst->frame[i+10] = src->payload.data[i];
+		}
+	}else{
+		dst->frame[10] = src->payload.beacon.ID_Network;
+		dst->frame[11] = src->payload.beacon.ID_Slot;
+		dst->frame[12] = src->payload.beacon.slot_total;
+	}	
+}
+
+void RecievemPacket(mrfiPacket_t *src ,mPacket *dst){
+	uint8_t i;
+	dst->length = src->frame[0];
+	for(i = 0;i <4;i++){
+		dst->src[i] = src->frame[i+1];
+	}
+	for(i = 0;i <4;i++){
+		dst->dst[i] = src->frame[i+5];
+	}
+	dst->flag = src->frame[9];
+	if(src->frame[9] == FDATA){
+		for(i = 0;i < src->frame[0]-9;i++){
+			dst->payload.data[i] = src->frame[i+10];
+		}
+	}else{
+		dst->payload.beacon.ID_Network = src->frame[10];
+		dst->payload.beacon.ID_Slot = src->frame[11];
+		dst->payload.beacon.slot_total = src->frame[12];
+	}	
+}
+
 
 void Send_beacon(Status * s){				//send the packet of beacon
 	char output[4] = "";
 
-	mrfiPacket_t beaconToSend;
-	beaconToSend.frame[0] = BEACON_SIZE + 4 ;
-	beaconToSend.frame[4] = s->MAC;
-	beaconToSend.frame[8] = BROADCAST;
+	mrfiPacket_t PacketToSend;
+	mPacket Packet;
+
+	Packet.length = BEACON_SIZE;
+	Packet.src[3] = s->MAC;
+	Packet.dst[3] = BROADCAST;
 	//fill in the beacon flag
-	beaconToSend.frame[9]  = FBEACON; 
+	Packet.flag  = FBEACON; 
 	//fill in the ID_NETWORK and ID_NODE
-	beaconToSend.frame[10] = s->ID_Network;
+	
+	Packet.payload.beacon.ID_Network = s->ID_Network;
+
 	if(s->HOST == IS_CREATER){
-		beaconToSend.frame[11] = 0;			//Slot num , host is creater
+		Packet.payload.beacon.ID_Slot = 0;
 	}else{
-		beaconToSend.frame[11] = s->MAC;			//Slot num 
+		Packet.payload.beacon.ID_Slot = s->MAC;
 	}
 
+	SendmPacket(&Packet, &PacketToSend);
+
+
 	//send the beacon
-	MRFI_Transmit(&beaconToSend, MRFI_TX_TYPE_FORCED);
+	MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);
 
 	output[0] = s->ID_Network/10 + '0';
 	output[1] = s->ID_Network%10 + '0';
@@ -35,27 +84,32 @@ void Send_beacon(Status * s){				//send the packet of beacon
 		output[2] = s->MAC/10 + '0';
 		output[3] = s->MAC%10 + '0';
 	}
-//	TXString(output, 4); //(sizeof output));
+	TXString(output, 4); //(sizeof output));
 }
 
 
 void Send_message(Status * s, char * Mess , uint8_t  Destination){	//send the message
 
-	mrfiPacket_t packetToSend;
+	mrfiPacket_t PacketToSend;
+	mPacket Packet;
+
 	uint8_t i;
-	packetToSend.frame[0] = 4 + 9 +1;//PAYLOAD_SIZE; add '\n' '\r'
-	packetToSend.frame[4] = s->MAC;
-	packetToSend.frame[8] = Destination;
-	packetToSend.frame[9] = FDATA; 
+	Packet.length = 4 + 9 +1;//PAYLOAD_SIZE; add '\n' '\r'
+	Packet.src[3] = s->MAC;
+	Packet.dst[3] = Destination;
+	Packet.flag = FDATA; 
 
 	//fill in the payload
 	for (i=0;i<strlen(Mess);i++) {
-		packetToSend.frame[i+10] = Mess[i];
+		Packet.payload.data[i] = Mess[i];
 	}
-	packetToSend.frame[i+10] = '\r';
+	Packet.payload.data[i] = '\r';
+
+	SendmPacket(&Packet, &PacketToSend);
+
 	//send the message
 	//MRFI_Transmit(&packetToSend, MRFI_TX_TYPE_CCA);
-	MRFI_Transmit(&packetToSend, MRFI_TX_TYPE_FORCED);
+	MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);
 
 //	TXString(Mess, 4);
 }

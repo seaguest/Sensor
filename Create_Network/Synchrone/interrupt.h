@@ -9,7 +9,7 @@ void timer_synchrone(Status* s);
 void timer_send_beacon(Status* s);
 
 void Button_Init();
-void Start_Timer();
+void Start_Timer(Status* s);
 void Stop_Timer();
 
 #endif
