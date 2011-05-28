@@ -38,7 +38,7 @@ void Start_Timer(Status* s){
 void Start_Timer_Surveille(){
 	TACTL=TASSEL_1 + MC_1;     		  
 	TACCTL0 = CCIE;                          // TACCR1 interrupt enabled
-	TACCR0 = 12000*5;			 // delay 5s
+	TACCR0 = (uint16_t) 12000*5;			 // delay 5s
 }
 
 void Stop_Timer(){

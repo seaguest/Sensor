@@ -7,6 +7,7 @@
 #include "stdio.h" 
 #include "stdlib.h"
 #include "synchrone.h"
+#include "fifo.h" 
 
 void Init(){
 	WDTCTL = WDTPW + WDTHOLD;
@@ -23,12 +24,16 @@ void Init(){
 	P1OUT |= 0x02;
 
 	Button_Init();
-	Synchrone_Init();
+	Synchrone_Init(21);			//set MAC
+	InitQueue(&FIFO_Send);
+	InitQueue(&FIFO_Recieve);
 }
 
 
 int main( void )
 {
+	char *s = (char *)malloc(4*sizeof(char));
+	s = "ss";
 	Init();
 	__bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ interrupt
 

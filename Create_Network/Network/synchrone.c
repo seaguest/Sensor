@@ -10,7 +10,7 @@
 
 Status etat;			//record all the status
 
-char Message[4][20] = {"hello Node1","hello Node2","hello Node3","hello Node4",};
+//char Message[4][20] = {"hello Node1","hello Node2","hello Node3","hello Node4",};
 
 void Delay_Rand(){			//wait for 0 ~ 100 ms
 	volatile uint16_t x ,y;
@@ -21,10 +21,10 @@ void Delay_Rand(){			//wait for 0 ~ 100 ms
 	}
 }
 
-void Synchrone_Init(){
+void Synchrone_Init(uint8_t mac){
 	etat.state = WAIT_SCAN;			//first time ;initialisation
 	etat.ID_Network = NO_NETWORK;			//no network at first
-	etat.MAC = 4;
+	etat.MAC = mac;
 	etat.HOST = IS_NOT_CREATER ;
 	etat.synchrone = 0;
 	etat.ID_Beacon = BROADCAST;
@@ -59,7 +59,8 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 	etat.Counter--;
 	
 	if(etat.synchrone == 1&&etat.HOST == IS_NOT_CREATER && etat.state == WAIT_MESSAGE && etat.Counter == (uint16_t) ( DUREE_ACTIVE - etat.MAC) ){
-		Send_message(&etat, Message[etat.MAC-1], BROADCAST);
+		Send_message(&etat, &FIFO_Send, BROADCAST);
+		Recieve_message(&etat, &FIFO_Recieve);
 	}
 
 	if(etat.Counter == 0){
@@ -91,7 +92,8 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 					etat.state = WAIT_MESSAGE;
 					//time for message
 					if(etat.HOST == IS_CREATER){
-						Send_message(&etat, Message[etat.MAC-1], BROADCAST);
+						Send_message(&etat, &FIFO_Send, BROADCAST);
+						Recieve_message(&etat, &FIFO_Recieve);
 					}
 					timer_message(&etat);	
 					break;
@@ -203,10 +205,9 @@ void MRFI_RxCompleteISR()
 
 	}else if(Packet.flag == FDATA){
 		if(Packet.dst[3] == etat.MAC || Packet.dst[3] == BROADCAST){
-			for (i=0;i<Packet.length-9;i++) {
-				output[i] = Packet.payload.data[i];
+			for (i=0;i<Packet.length-10;i++) {
+				EnQueue(&FIFO_Recieve,Packet.payload.data[i]);
 			}
-			TXString(output, strlen(output));
 		}else{			//if the destination is not him, relay
 			//MRFI_Transmit(&packet, MRFI_TX_TYPE_CCA);
 			MRFI_Transmit(&PacketRecieved, MRFI_TX_TYPE_FORCED);

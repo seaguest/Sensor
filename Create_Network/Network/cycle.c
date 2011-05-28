@@ -4,6 +4,8 @@
 #include "string.h"
 #include <mrfi.h> 
 #include "cycle.h"
+#include "fifo.h"
+
 
 void SendmPacket(mPacket *src ,mrfiPacket_t *dst){
 	uint8_t i;
@@ -83,32 +85,59 @@ void Send_beacon(Status * s){				//send the packet of beacon
 		output[2] = s->MAC/10 + '0';
 		output[3] = s->MAC%10 + '0';
 	}
-	TXString(output, strlen(output));
+	TXString(output, 4);
 }
 
+void Recieve_message(Status * s, QList *Q){	//Recieve the message
+	char output[MRFI_MAX_FRAME_SIZE-10]="";
+	uint8_t i;
+	char c;
 
-void Send_message(Status * s, char * Mess , uint8_t  Destination){	//send the message
+	i = 0;
+	while(Search(Q, '\r')){				 
+		c = DeQueue(Q);
+		output[i] = c;		
+		i++;
+		if( c == '\r' ){
+			i = 0;
+			TXString(output, strlen(output));
+		}
+	}	
+}
+
+void Send_message(Status * s, QList *Q, uint8_t  Destination){	//send the message
 
 	mrfiPacket_t PacketToSend;
 	mPacket Packet;
 
-	uint8_t i;
-	Packet.length = strlen(Mess) + 10 + 1;//PAYLOAD_SIZE; add '\n' '\r'
-	Packet.src[3] = s->MAC;
-	Packet.dst[3] = Destination;
-	Packet.flag = FDATA; 
+	uint8_t i ;
 
-	//fill in the payload
-	for (i=0;i<strlen(Mess);i++) {
-		Packet.payload.data[i] = Mess[i];
+	if(!IsEmpty(Q)){
+		Packet.src[3] = s->MAC;
+		Packet.dst[3] = Destination;
+		Packet.flag = FDATA; 
+	
+		if(Length(Q)>=PAYLOAD_MAX_SIZE){
+			Packet.length = PAYLOAD_MAX_SIZE + 10; 
+			for(i = 0;i<PAYLOAD_MAX_SIZE;i++){
+				Packet.payload.data[i] = DeQueue(Q);
+			}
+		}else{
+			i = 0;
+			Packet.length = Length(Q) + 10;
+			while(!IsEmpty(Q)){
+				Packet.payload.data[i] = DeQueue(Q);
+				i++;
+			}
+		}
+
+		SendmPacket(&Packet, &PacketToSend);
+
+		//send the message
+		//MRFI_Transmit(&packetToSend, MRFI_TX_TYPE_CCA);
+		MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);
 	}
-	Packet.payload.data[i] = 0;		//symble of end
-
-	SendmPacket(&Packet, &PacketToSend);
-
-	//send the message
-	//MRFI_Transmit(&packetToSend, MRFI_TX_TYPE_CCA);
-	MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);
+ 
 }
 
 void Sleep(){

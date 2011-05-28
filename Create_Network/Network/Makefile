@@ -12,7 +12,7 @@ INCLUDES = -I${MRFI_PATH}/ \
 -I${BSP_PATH}/drivers/ \
 -I${BSP_PATH}/boards/${BOARD}/
 
-OBJECTS  = bsp.o mrfi.o interrupt.o uart.o cycle.o synchrone.o
+OBJECTS  = bsp.o mrfi.o interrupt.o uart.o cycle.o synchrone.o fifo.o
 
 BINARIES = network
 
@@ -52,5 +52,9 @@ synchrone.o:synchrone.c
 	${CC} ${CFLAGS} -c $< -o $@
 	@echo CC $<
 
-network: network.c bsp.o mrfi.o interrupt.o uart.o cycle.o synchrone.o
-	$(CC) ${CFLAGS} bsp.o mrfi.o interrupt.o uart.o cycle.o synchrone.o -o $@ $<
+fifo.o:fifo.c 
+	${CC} ${CFLAGS} -c $< -o $@
+	@echo CC $<
+
+network: network.c bsp.o mrfi.o interrupt.o uart.o cycle.o synchrone.o fifo.o
+	$(CC) ${CFLAGS} bsp.o mrfi.o interrupt.o uart.o cycle.o synchrone.o fifo.o -o $@ $<
