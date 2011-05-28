@@ -71,7 +71,6 @@ void Send_beacon(Status * s){				//send the packet of beacon
 
 	SendmPacket(&Packet, &PacketToSend);
 
-
 	//send the beacon
 	MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);
 
@@ -84,7 +83,7 @@ void Send_beacon(Status * s){				//send the packet of beacon
 		output[2] = s->MAC/10 + '0';
 		output[3] = s->MAC%10 + '0';
 	}
-	TXString(output, 4); //(sizeof output));
+	TXString(output, strlen(output));
 }
 
 
@@ -94,7 +93,7 @@ void Send_message(Status * s, char * Mess , uint8_t  Destination){	//send the me
 	mPacket Packet;
 
 	uint8_t i;
-	Packet.length = 4 + 9 +1;//PAYLOAD_SIZE; add '\n' '\r'
+	Packet.length = strlen(Mess) + 10 + 1;//PAYLOAD_SIZE; add '\n' '\r'
 	Packet.src[3] = s->MAC;
 	Packet.dst[3] = Destination;
 	Packet.flag = FDATA; 
@@ -103,14 +102,12 @@ void Send_message(Status * s, char * Mess , uint8_t  Destination){	//send the me
 	for (i=0;i<strlen(Mess);i++) {
 		Packet.payload.data[i] = Mess[i];
 	}
-	Packet.payload.data[i] = '\r';
+	Packet.payload.data[i] = 0;		//symble of end
 
 	SendmPacket(&Packet, &PacketToSend);
 
 	//send the message
 	//MRFI_Transmit(&packetToSend, MRFI_TX_TYPE_CCA);
 	MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);
-
-//	TXString(Mess, 4);
 }
 

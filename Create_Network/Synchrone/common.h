@@ -26,7 +26,7 @@
 #define WAIT_MESSAGE	0x3F
 #define WAIT_SLEEP	0x4F
 
-#define BEACON_SIZE     0x0C			 //define Beacon size
+#define BEACON_SIZE     0x0D			 //define Beacon size
 
 #define NO_NETWORK		0x0
 

@@ -9,7 +9,7 @@
 Status etat;			//record all the status
 //uint16_t  first_wait = 0;
 
-char Message[4][5] = {"iam1","iam2","iam3","iam4"};
+char Message[4][20] = {"hello Node1","hello Node2","hello Node3","hello Node4",};
 
 void Sleep(){
 	__bis_SR_register(LPM3_bits + GIE);       // Enter LPM0 w/ interrupt
@@ -34,7 +34,7 @@ void Init(){
 
 	etat.state = WAIT_SCAN;			//first time ;initialisation
 	etat.ID_Network = NO_NETWORK;			//no network at first
-	etat.MAC = 9;
+	etat.MAC = 1;
 	etat.HOST = IS_NOT_CREATER ;
 	etat.synchrone = 0;
 	etat.ID_Beacon = BROADCAST;
@@ -46,7 +46,7 @@ int main( void )
 {
 	Init();
 	__bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ interrupt
-	
+
 	return 0;
 }
 
@@ -55,11 +55,11 @@ void Timer_B0(void);
 interrupt(TIMERB0_VECTOR) Timer_B0(void)
 {
 	etat.Counter--;
-	/*
+/*	
 	if(etat.synchrone == 1&&etat.HOST == IS_NOT_CREATER && etat.state == WAIT_MESSAGE && etat.Counter == (uint16_t) ( DUREE_ACTIVE - etat.MAC) ){
 		Send_message(&etat, Message[etat.MAC-1], BROADCAST);
-	}*/
-
+	}
+*/
 	if(etat.Counter == 0){
 		Stop_Timer();
 		if(etat.ID_Network == NO_NETWORK){
@@ -88,9 +88,9 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 				case WAIT_SYNCHRONE : 
 					etat.state = WAIT_MESSAGE;
 					//time for message
-					/*if(etat.HOST == IS_CREATER){
-						Send_message(&etat, Message[etat.MAC-1], BROADCAST);
-					}*/
+					if(etat.HOST == IS_CREATER){
+						Send_message(&etat, Message[etat.MAC-1], 1);
+					}
 					timer_message(&etat);	
 					break;
 				case WAIT_MESSAGE :
@@ -149,8 +149,8 @@ void MRFI_RxCompleteISR()
 	mrfiPacket_t PacketRecieved;
 	mPacket Packet;
 
-	uint8_t ID_Network_tmp, ID_Beacon_tmp;
-	char output[4];
+	uint8_t ID_Network_tmp, ID_Beacon_tmp ,i;
+	char output[MRFI_MAX_FRAME_SIZE-10]="";
 
 	MRFI_Receive(&PacketRecieved);
 	RecievemPacket(&PacketRecieved ,&Packet);
@@ -195,12 +195,14 @@ void MRFI_RxCompleteISR()
 		output[2] = ID_Beacon_tmp/10 + '0';
 		output[3] = ID_Beacon_tmp%10 + '0';
 
-		TXString(output, 4); //(sizeof output));
+		TXString(output, strlen(output));
 
 	}else if(Packet.flag == FDATA){
 		if(Packet.dst[3] == etat.MAC || Packet.dst[3] == BROADCAST){
-			//output = (char *)Packet.payload.data;
-			TXString(output, 4);//(sizeof output));
+			for (i=0;i<Packet.length-9;i++) {
+				output[i] = Packet.payload.data[i];
+			}
+			TXString(output, strlen(output));
 		}else{			//if the destination is not him, relay
 			//MRFI_Transmit(&packet, MRFI_TX_TYPE_CCA);
 			MRFI_Transmit(&PacketRecieved, MRFI_TX_TYPE_FORCED);
