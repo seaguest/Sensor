@@ -33,8 +33,9 @@
 
 
 // Definition des flags
-#define FDATA 0x0
-#define FBEACON 0x1
+#define FDATA 	0x0F
+#define FBEACON 0x1F
+#define FRIP 	0x2F
 
 // en ms avec SMCLK = 8MHZ
 #define N_1MS 8000
@@ -54,6 +55,40 @@
 // en ms
 #define DUREE_SURVEILLE 5000
 
+typedef struct
+{
+	uint8_t ID_Network;
+	uint8_t ID_Slot;
+	uint32_t Voisin;
+} mBeacon;
+
+typedef struct {
+	//uint16_t SEQ;
+	//uint16_t ACK; 
+	uint8_t Next_hop[4];
+	uint8_t data[MRFI_MAX_FRAME_SIZE-14];
+} mData;
+
+typedef struct {
+	uint8_t Dst[4];
+	uint8_t Next_hop[4];
+	uint8_t Metric;
+} mRip;
+
+
+typedef struct
+{
+	uint8_t length;
+	uint8_t src[4];
+	uint8_t dst[4];
+	uint8_t flag;
+	union{
+		mBeacon beacon;
+		mRip route[N_SLOT];
+		mData data;
+	} payload;
+} mPacket;
+
 
 typedef struct
 {
@@ -66,34 +101,10 @@ typedef struct
 	uint16_t Counter; 			 
 	uint16_t Surveille_Cnt; 			 
 	uint16_t Surveille_Cnt_Old; 	
-	uint32_t Voisin;		 
+	uint32_t Voisin;	
+	mRip Route_table[N_SLOT];	 
 } Status;
 
-typedef struct
-{
-	uint8_t ID_Network;
-	uint8_t ID_Slot;
-	uint32_t Voisin;
-} mBeacon;
-
-typedef struct {
-	uint16_t SEQ;
-	uint16_t ACK; 
-	uint8_t data[MRFI_MAX_FRAME_SIZE-10];
-} mData;
-
-typedef struct
-{
-	uint8_t length;
-	uint8_t src[4];
-	uint8_t dst[4];
-	uint8_t flag;
-	union{
-		//mData data;
-		uint8_t data[MRFI_MAX_FRAME_SIZE-10];
-		mBeacon beacon;
-	} payload;
-} mPacket;
 
 
 #endif

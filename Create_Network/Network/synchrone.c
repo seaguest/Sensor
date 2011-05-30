@@ -34,12 +34,14 @@ void Synchrone_Init(uint8_t mac){
 	etat.Surveille_Cnt = 0; 			 
 	etat.Surveille_Cnt_Old = 0;
 	Init_voisin(&etat);			//reset the table of route
+	Init_route_table(&etat);
 }
 
 
 void Timer_Surveille(void);
 interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
 {
+//	Init_voisin(&etat);			//reset the table of route
 	if(etat.HOST == IS_NOT_CREATER){
 		if(etat.Surveille_Cnt != etat.Surveille_Cnt_Old){	 
 			etat.Surveille_Cnt_Old = etat.Surveille_Cnt;
@@ -157,6 +159,8 @@ void MRFI_RxCompleteISR()
 	mPacket Packet;
 
 	uint8_t ID_Network_tmp, ID_Beacon_tmp ,i;
+	uint32_t voisin_voisin;					//the voisin of voisin
+
 	char output[MRFI_MAX_FRAME_SIZE-10]="";
 	etat.Surveille_Cnt = ( etat.Surveille_Cnt + 1 )%65535;
 
@@ -166,8 +170,9 @@ void MRFI_RxCompleteISR()
 	if(Packet.flag == FBEACON){	
 		ID_Network_tmp = Packet.payload.beacon.ID_Network;
 		ID_Beacon_tmp  = Packet.payload.beacon.ID_Slot;
-		Add_voisin(&etat, ID_Beacon_tmp);		//add the router
-
+		voisin_voisin = Packet.payload.beacon.Voisin;
+		Add_router(&etat , ID_Beacon_tmp, voisin_voisin);	//every time it recieve the beacon , update the route table
+	
 		if(etat.synchrone == 0){				//in scan or update
 			etat.ID_Network = Packet.payload.beacon.ID_Network;		//attention, support only one network
 			etat.ID_Beacon  = Packet.payload.beacon.ID_Slot;		//the slot_num 	
@@ -209,13 +214,22 @@ void MRFI_RxCompleteISR()
 
 	}else if(Packet.flag == FDATA){
 		if(Packet.dst[3] == etat.MAC || Packet.dst[3] == BROADCAST){
-			for (i=0;i<Packet.length-10;i++) {
-				EnQueue(&FIFO_Recieve,Packet.payload.data[i]);
+			for (i=0;i<Packet.length-14;i++) {
+				EnQueue(&FIFO_Recieve,Packet.payload.data.data[i]);
 			}
-		}else{			//if the destination is not him, relay
+		}else if(Packet.payload.data.Next_hop[3] ==etat.MAC){ 	//if next hop is him, relay
+
+			if(Is_voisin(&etat,Packet.dst[3])){		//change the next hop
+				PacketRecieved.frame[13] = Packet.dst[3];
+			}else{
+				PacketRecieved.frame[13] = Find_next_hop(&etat , Packet.dst[3]);
+			}
+
 			//MRFI_Transmit(&packet, MRFI_TX_TYPE_CCA);
-			MRFI_Transmit(&PacketRecieved, MRFI_TX_TYPE_FORCED);
+			MRFI_Transmit(&PacketRecieved, MRFI_TX_TYPE_FORCED);	
 		}
+	}else if(Packet.flag == FRIP){
+		;//a completer
 	}
 }
 

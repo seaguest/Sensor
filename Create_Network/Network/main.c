@@ -32,8 +32,6 @@ void Init_config(){
 
 int main( void )
 {
-	char *s = (char *)malloc(4*sizeof(char));
-	s = "ss";
 	Init_config();
 	__bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ interrupt
 

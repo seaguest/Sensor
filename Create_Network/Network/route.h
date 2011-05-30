@@ -15,7 +15,11 @@
 uint32_t puissance(uint8_t i);
 void Init_voisin(Status *s);
 void Add_voisin(Status *s, uint8_t id);
-uint8_t Is_reachable(Status *s, uint8_t dst);
+uint8_t Is_voisin(Status *s, uint8_t dst);
 uint8_t Default_GW(Status *s);
+
+void Init_route_table(Status *s);
+void Add_router(Status *s , uint8_t id, uint32_t voisin);
+uint8_t Find_next_hop(Status *s , uint8_t dst);
 
 #endif

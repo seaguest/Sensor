@@ -5,6 +5,7 @@
 #include <mrfi.h> 
 #include "cycle.h"
 #include "fifo.h"
+#include "route.h"
 
 
 void SendmPacket(mPacket *src ,mrfiPacket_t *dst){
@@ -18,10 +19,15 @@ void SendmPacket(mPacket *src ,mrfiPacket_t *dst){
 	}
 	dst->frame[9] = src->flag;
 	if(src->flag == FDATA){
-		for(i = 0;i < src->length-9;i++){
-			dst->frame[i+10] = src->payload.data[i];
+		for(i = 0;i <4;i++){
+			dst->frame[i+10] = src->payload.data.Next_hop[i];
 		}
-	}else{
+		for(i = 0;i < src->length-14;i++){
+			dst->frame[i+14] = src->payload.data.data[i];
+		}
+	}else if(src->flag == FRIP){
+		;//wait for implementation
+	}else if(src->flag == FBEACON){
 		dst->frame[10] = src->payload.beacon.ID_Network;
 		dst->frame[11] = src->payload.beacon.ID_Slot;
 		dst->frame[12] = (uint8_t) (src->payload.beacon.Voisin/(255*255*255));
@@ -41,11 +47,16 @@ void RecievemPacket(mrfiPacket_t *src ,mPacket *dst){
 		dst->dst[i] = src->frame[i+5];
 	}
 	dst->flag = src->frame[9];
-	if(src->frame[9] == FDATA){
-		for(i = 0;i < src->frame[0]-9;i++){
-			dst->payload.data[i] = src->frame[i+10];
+	if(dst->flag == FDATA){
+		for(i = 0;i <4;i++){
+			dst->payload.data.Next_hop[i] = src->frame[i+10];
+		}		
+		for(i = 0;i < src->frame[0]-14;i++){
+			dst->payload.data.data[i] = src->frame[i+14];
 		}
-	}else{
+	}else if(dst->flag == FRIP){
+		;//a complemente
+	}else if(dst->flag == FBEACON){
 		dst->payload.beacon.ID_Network = src->frame[10];
 		dst->payload.beacon.ID_Slot = src->frame[11];
 		dst->payload.beacon.Voisin = src->frame[12]*255*255*255 + src->frame[13]*255*255 +src->frame[14]*255 + src->frame[15];
@@ -113,7 +124,7 @@ void Recieve_message(Status * s, QList *Q){	//Recieve the message
 	}	
 }
 
-void Send_message(Status * s, QList *Q, uint8_t  Destination){	//send the message
+void Send_message(Status * s, QList *Q, uint8_t  dst){	//send the message
 
 	mrfiPacket_t PacketToSend;
 	mPacket Packet;
@@ -122,21 +133,28 @@ void Send_message(Status * s, QList *Q, uint8_t  Destination){	//send the messag
 
 	if(!IsEmpty(Q)){
 		Packet.src[3] = s->MAC;
-		Packet.dst[3] = Destination;
+		Packet.dst[3] = dst;
 		Packet.flag = FDATA; 
 	
 		if(Length(Q)>=PAYLOAD_MAX_SIZE){
-			Packet.length = PAYLOAD_MAX_SIZE + 10; 
+			Packet.length = PAYLOAD_MAX_SIZE + 14;
 			for(i = 0;i<PAYLOAD_MAX_SIZE;i++){
-				Packet.payload.data[i] = DeQueue(Q);
+				Packet.payload.data.data[i] = DeQueue(Q);
 			}
 		}else{
 			i = 0;
-			Packet.length = Length(Q) + 10;
+			Packet.length = Length(Q) + 14;
 			while(!IsEmpty(Q)){
-				Packet.payload.data[i] = DeQueue(Q);
+				Packet.payload.data.data[i] = DeQueue(Q);
 				i++;
 			}
+		}
+
+		//find the next hop
+		if(Is_voisin(s,dst)){
+			Packet.payload.data.Next_hop[3] = dst;
+		}else{
+			Packet.payload.data.Next_hop[3] = Find_next_hop(s , dst);
 		}
 
 		SendmPacket(&Packet, &PacketToSend);
