@@ -26,7 +26,7 @@
 #define WAIT_MESSAGE	0x3F
 #define WAIT_SLEEP	0x4F
 
-#define BEACON_SIZE     0x0D			 //define Beacon size	include the length(1B)
+#define BEACON_SIZE     0x10			 //define Beacon size	include the length(1B)
 #define PAYLOAD_MAX_SIZE    20			 
 
 #define NO_NETWORK		0x0
@@ -65,15 +65,22 @@ typedef struct
 	uint8_t ID_Beacon;			//from who we get the beacon
 	uint16_t Counter; 			 
 	uint16_t Surveille_Cnt; 			 
-	uint16_t Surveille_Cnt_Old; 			 
+	uint16_t Surveille_Cnt_Old; 	
+	uint32_t Voisin;		 
 } Status;
 
 typedef struct
 {
 	uint8_t ID_Network;
 	uint8_t ID_Slot;
-	uint8_t slot_total;
+	uint32_t Voisin;
 } mBeacon;
+
+typedef struct {
+	uint16_t SEQ;
+	uint16_t ACK; 
+	uint8_t data[MRFI_MAX_FRAME_SIZE-10];
+} mData;
 
 typedef struct
 {
@@ -82,6 +89,7 @@ typedef struct
 	uint8_t dst[4];
 	uint8_t flag;
 	union{
+		//mData data;
 		uint8_t data[MRFI_MAX_FRAME_SIZE-10];
 		mBeacon beacon;
 	} payload;

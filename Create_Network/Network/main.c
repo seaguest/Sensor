@@ -9,7 +9,7 @@
 #include "synchrone.h"
 #include "fifo.h" 
 
-void Init(){
+void Init_config(){
 	WDTCTL = WDTPW + WDTHOLD;
 
 	//set clock 8MHZ
@@ -34,7 +34,7 @@ int main( void )
 {
 	char *s = (char *)malloc(4*sizeof(char));
 	s = "ss";
-	Init();
+	Init_config();
 	__bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ interrupt
 
 	return 0;

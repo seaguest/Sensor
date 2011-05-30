@@ -24,7 +24,10 @@ void SendmPacket(mPacket *src ,mrfiPacket_t *dst){
 	}else{
 		dst->frame[10] = src->payload.beacon.ID_Network;
 		dst->frame[11] = src->payload.beacon.ID_Slot;
-		dst->frame[12] = src->payload.beacon.slot_total;
+		dst->frame[12] = (uint8_t) (src->payload.beacon.Voisin/(255*255*255));
+		dst->frame[13] = (uint8_t) ((src->payload.beacon.Voisin%(255*255*255))/(255*255));
+		dst->frame[14] = (uint8_t) ((src->payload.beacon.Voisin%(255*255))/255);
+		dst->frame[15] = (uint8_t) (src->payload.beacon.Voisin%255);
 	}	
 }
 
@@ -45,7 +48,7 @@ void RecievemPacket(mrfiPacket_t *src ,mPacket *dst){
 	}else{
 		dst->payload.beacon.ID_Network = src->frame[10];
 		dst->payload.beacon.ID_Slot = src->frame[11];
-		dst->payload.beacon.slot_total = src->frame[12];
+		dst->payload.beacon.Voisin = src->frame[12]*255*255*255 + src->frame[13]*255*255 +src->frame[14]*255 + src->frame[15];
 	}	
 }
 
@@ -70,6 +73,8 @@ void Send_beacon(Status * s){				//send the packet of beacon
 	}else{
 		Packet.payload.beacon.ID_Slot = s->MAC;
 	}
+	
+	Packet.payload.beacon.Voisin = s->Voisin;
 
 	SendmPacket(&Packet, &PacketToSend);
 
@@ -96,11 +101,14 @@ void Recieve_message(Status * s, QList *Q){	//Recieve the message
 	i = 0;
 	while(Search(Q, '\r')){				 
 		c = DeQueue(Q);
-		output[i] = c;		
-		i++;
 		if( c == '\r' ){
+			output[i] = '\n';		
+			output[i+1] = '\r';		
 			i = 0;
 			TXString(output, strlen(output));
+		}else{
+			output[i] = c;	
+			i++;	
 		}
 	}	
 }

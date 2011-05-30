@@ -7,6 +7,8 @@
 #include "stdio.h" 
 #include "stdlib.h"
 #include "synchrone.h"
+#include "route.h"
+
 
 Status etat;			//record all the status
 
@@ -31,6 +33,7 @@ void Synchrone_Init(uint8_t mac){
 	etat.Counter = 0;
 	etat.Surveille_Cnt = 0; 			 
 	etat.Surveille_Cnt_Old = 0;
+	Init_voisin(&etat);			//reset the table of route
 }
 
 
@@ -126,7 +129,6 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 		}
 
 	}
-
 }
 
 void Buttopn(void);
@@ -164,6 +166,8 @@ void MRFI_RxCompleteISR()
 	if(Packet.flag == FBEACON){	
 		ID_Network_tmp = Packet.payload.beacon.ID_Network;
 		ID_Beacon_tmp  = Packet.payload.beacon.ID_Slot;
+		Add_voisin(&etat, ID_Beacon_tmp);		//add the router
+
 		if(etat.synchrone == 0){				//in scan or update
 			etat.ID_Network = Packet.payload.beacon.ID_Network;		//attention, support only one network
 			etat.ID_Beacon  = Packet.payload.beacon.ID_Slot;		//the slot_num 	
