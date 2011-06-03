@@ -97,6 +97,33 @@ uint8_t Find_next_hop(Status *s , uint8_t dst){			//find the next hop for routin
 	}
 }
 
+uint8_t Find_index(uint8_t id ,mPacket *m){			//find id correspond index in the rip packet
+	uint8_t i;
+	for(i = 0;i<((m->length-10)/9);i++){
+		if(m->payload.route[i].Dst[3] == id){
+			return i;
+		}
+	}
+	return 32;				//failed
+}
+
+void Update_rip(Status *s ,mPacket *m){
+	uint8_t i ,src, index;
+	src = m->src[3];
+	if(Is_voisin(s,src+1)){
+		for(i = 0;i<32;i++){
+			if(s->Route_table[i].Dst[3]==0 &&((index=Find_index(i+1,m))!=32)){
+				s->Route_table[i].Dst[3] = i+1;	 
+				s->Route_table[i].Next_hop[3] = src; 
+				s->Route_table[i].Metric = m->payload.route[index].Metric +1;
+			}else if(s->Route_table[i].Dst[3]!=0 && (Find_index(i+1,m)==32) && s->Route_table[i].Next_hop[3] == src ){
+				s->Route_table[i].Dst[3] = 0;	 
+				s->Route_table[i].Next_hop[3] = 0; 
+				s->Route_table[i].Metric = 255;
+			}
+		}
+	}
+}
 
 void Show_Online(Status *s){
 	uint8_t i;

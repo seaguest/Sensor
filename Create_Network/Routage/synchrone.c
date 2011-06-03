@@ -12,6 +12,7 @@
 
 Status etat;			//record all the status
 extern uint8_t UART_MODE;
+uint8_t RIP_Prepared = 0;
 
 //char Message[4][20] = {"hello Node1","hello Node2","hello Node3","hello Node4",};
 
@@ -48,6 +49,7 @@ interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
 	//Init_voisin(&etat);			//reset the table of route
 	//Init_route_table(&etat);
 
+	RIP_Prepared = 1;			//signal for rip
 	if(etat.HOST == IS_NOT_CREATER){
 		if(etat.Surveille_Cnt != etat.Surveille_Cnt_Old){	 
 			etat.Surveille_Cnt_Old = etat.Surveille_Cnt;
@@ -105,7 +107,10 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 
 					Send_message(&etat, &FIFO_Send ,etat.Dst);
 					Recieve_message(&etat, &FIFO_Recieve);
-
+					if(RIP_Prepared == 1){		//every 3s ,send the rip
+						Send_rip(&etat);
+						RIP_Prepared = 0;
+					}
 					break;
 				case WAIT_MESSAGE :
 					etat.state = WAIT_SLEEP;
@@ -286,8 +291,8 @@ void MRFI_RxCompleteISR()
 				EnQueue(&FIFO_Recieve,data);
 			}
 		}
-	}else if(Packet.flag == FRIP){
-		;//a completer
+	}else if(Packet.flag == FRIP){		//recieve the packet of rip then update the router table
+		Update_rip(&etat ,Packet);
 	}
 }
 

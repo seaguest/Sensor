@@ -26,7 +26,19 @@ void SendmPacket(mPacket *src ,mrfiPacket_t *dst){
 			dst->frame[i+14] = src->payload.data.data[i];
 		}
 	}else if(src->flag == FRIP){
-		;//wait for implementation
+		for(i=0;i<32;i++){					 
+			if(src->payload.route[i].Dst[3]!=0){ 
+				dst->frame[10+9*i] = 0;
+				dst->frame[11+9*i] = 0;
+				dst->frame[12+9*i] = 0;
+				dst->frame[13+9*i] = src->payload.route[i].Dst[3];
+				dst->frame[14+9*i] = 0;
+				dst->frame[15+9*i] = 0;
+				dst->frame[16+9*i] = 0;
+				dst->frame[17+9*i] = src->payload.route[i].Next_hop[3];
+				dst->frame[18+9*i] = src->payload.route[i].Metric;
+			}
+		}
 	}else if(src->flag == FBEACON){
 		dst->frame[10] = src->payload.beacon.ID_Network;
 		dst->frame[11] = src->payload.beacon.ID_Slot;
@@ -55,7 +67,11 @@ void RecievemPacket(mrfiPacket_t *src ,mPacket *dst){
 			dst->payload.data.data[i] = src->frame[i+14];
 		}
 	}else if(dst->flag == FRIP){
-		;//a complemente
+		for(i=0;i<(src->frame[0]-10)/9;i++){		
+			dst->payload.route[i].Dst[3] = src->frame[13+9*i];
+			dst->payload.route[i].Next_hop[3] = src->frame[17+9*i];
+			dst->payload.route[i].Metric = src->frame[18+9*i];;
+		}
 	}else if(dst->flag == FBEACON){
 		dst->payload.beacon.ID_Network = src->frame[10];
 		dst->payload.beacon.ID_Slot = src->frame[11];
@@ -76,7 +92,6 @@ void Send_beacon(Status * s){				//send the packet of beacon
 	//fill in the beacon flag
 	Packet.flag  = FBEACON; 
 	//fill in the ID_NETWORK and ID_NODE
-	
 	Packet.payload.beacon.ID_Network = s->ID_Network;
 
 	if(s->HOST == IS_CREATER){
@@ -105,6 +120,40 @@ void Send_beacon(Status * s){				//send the packet of beacon
 
 //	print(output);		//important of writing number not strlen
 }
+
+void Send_rip(Status * s){				//send the packet of beacon
+	uint8_t i, cnt=0;
+
+	mrfiPacket_t PacketToSend;
+	mPacket Packet;
+
+	Packet.src[3] = s->MAC;
+	Packet.dst[3] = BROADCAST;
+	//fill in the beacon flag
+	Packet.flag  = FRIP; 
+	//fill in the ID_NETWORK and ID_NODE
+
+	for(i=0;i<32;i++){					 
+		if(s->Route_table[i].Dst[3]!=0){ 
+			Packet.payload.route[cnt].Dst[3] = s->Route_table[i].Dst[3];
+			Packet.payload.route[cnt].Next_hop[3] = s->Route_table[i].Next_hop[3];
+			Packet.payload.route[cnt].Metric = s->Route_table[i].Metric;
+			cnt++;
+		}
+	}
+	for(i=cnt;i<32;i++){					//clear the other dst 
+		Packet.payload.route[i].Dst[3] = 0;
+	}
+
+	Packet.length =  10 + 9*cnt;
+	SendmPacket(&Packet, &PacketToSend);
+
+	if(cnt!=0){
+		//send the rip
+		MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_CCA);
+	}
+}
+
 
 void Recieve_message(Status * s, QList *p){	//Recieve the message
 	char output[MRFI_MAX_FRAME_SIZE-10]="";
