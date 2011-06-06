@@ -181,6 +181,7 @@ void Show_Online(Status *s){
 			on[1] = 0;
 		}
 	}
+	print("\n\r");
 }
 
 /*

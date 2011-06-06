@@ -6,6 +6,8 @@
 #include "cycle.h"
 #include "fifo.h"
 #include "route.h"
+#include <mrfi.h> 
+
 
 /*
 *	this file records the activites during one duty cycle
@@ -135,7 +137,7 @@ void Send_rip(Status * s){
 
 	Packet.src[3] = s->MAC;
 	Packet.dst[3] = BROADCAST;
-	//fill in the beacon flag
+	//fill in the RIP flag
 	Packet.flag  = FRIP; 
 
 	for(i=0;i<32;i++){					 
@@ -242,5 +244,5 @@ void Send_message(Status * s, QList *Q, uint8_t  dst){	//send the message
 *	sleeo , jump the mode LPM3
 */
 void Sleep(void ){
-	__bis_SR_register(LPM3_bits + GIE);       // Enter LPM0 w/ interrupt
+	;//__bis_SR_register(LPM3_bits + GIE);       // Enter LPM0 w/ interrupt
 }

@@ -14,5 +14,6 @@ void Stop_Timer(void );
 
 void Start_Timer_Surveille(void );
 uint8_t Clock(void );
+void Set_Clock(void );
 
 #endif

@@ -77,6 +77,7 @@ interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
 			if(rx == 'o'){			// show people online 
 				print("\n\r");
 				Show_Online(&etat);	
+				print("choose one : \n\r");
 				UART_MODE = 1;
 			}else if(rx == 'r'){		//show router table
 				print("\n\r");

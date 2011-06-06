@@ -31,8 +31,6 @@
 
 #define NO_NETWORK		0x0
 
-#define  DEBUG   0			//if debug or not
-
 
 // Definition des flags
 #define FDATA 	0x0F

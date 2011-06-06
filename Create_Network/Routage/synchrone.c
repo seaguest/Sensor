@@ -122,15 +122,6 @@ interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
 void Timer_B0(void);
 interrupt(TIMERB0_VECTOR) Timer_B0(void)
 {
-/*
-	if(Clock() == 1 && etat.state!=WAIT_SLEEP){	  // only sleep choose 1 ,vlo	 
-		__bic_SR_register_on_exit(LPM3_bits);     // Clear LPM3 bits from 0(SR)	
-		TBCTL=TBSSEL_2 + MC_1;     		  
-		TBCCTL0 = CCIE;                        
-		TBCCR0 = (uint16_t) N_1MS;		 //delay 1ms 
-	}
-*/
-
 	etat.Counter--;
 	if(etat.Counter == 0){
 		Stop_Timer();
@@ -145,66 +136,47 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 	 	}else{
 			switch(etat.state){
 				case WAIT_BEACON : 
-					//if(DEBUG){print("ok beacon is over \n\r"); }
 					if(etat.HOST == IS_NOT_CREATER){
 						etat.state = WAIT_SYNCHRONE;	//change the state
 						if(etat.ID_Beacon < etat.MAC){
 							timer_synchrone(&etat);
-							//if(DEBUG){print("ok MAC > t_synchrone is set \n\r"); }
 							P1OUT ^= 0x01;   			//rouge led
 							Send_beacon(&etat);			//send beacon
 						}else{			
 							Stop_Timer();	
-							//if(DEBUG){print("ok MAC < timer stoped \n\r"); }
 						}
 					}
 					break;
 				case WAIT_SYNCHRONE : 
-					//if(DEBUG){print("ok synchrone is over \n\r");}
 					etat.state = WAIT_MESSAGE;	//change the state
 					//time for message
 					timer_message(&etat);	
-					//if(DEBUG){print("ok t_message is set \n\r"); }	
 					if(etat.HOST == IS_NOT_CREATER ){
 					 	etat.synchrone = 0;			//section critique
 					}
-/*
+
 					Send_message(&etat, &FIFO_Send ,etat.Dst);
 					Recieve_message(&etat, &FIFO_Recieve);
 					if(RIP_Prepared == 1){		//every 3s ,send the rip
 						Send_rip(&etat);
 						RIP_Prepared = 0;
 					}
-*/
 					break;
 				case WAIT_MESSAGE :
-					//if(DEBUG){print("ok message is over \n\r");}	
 					etat.state = WAIT_SLEEP;	//change the state
 					//time for sleep
 					timer_sleep(&etat);
-					//if(DEBUG){print("ok t_sleep is set \n\r");	}	
-
-					if(etat.HOST == IS_NOT_CREATER ){
-					 	etat.synchrone = 0;			//section critique
-					}
 
 					Sleep();
-					//if(DEBUG){print("ok fall in sleep \n\r");	}	
 					break;
 				case WAIT_SLEEP :
-					//if(DEBUG){print("ok sleep is over \n\r");	}	
-					__bic_SR_register_on_exit(LPM3_bits);     // Clear LPM3 bits from 0(SR)	
 					if(etat.HOST == IS_NOT_CREATER ){
 						etat.state = WAIT_BEACON;	//change the state
 
-				 		//if(DEBUG){print("ok WAIT_BEACON change synchrone \n\r");	}		
-
 						if(etat.ID_Beacon < etat.MAC){
 							Stop_Timer();
-				 			//if(DEBUG){print("ok MAC > ,stop timer \n\r");	}		
 						}else{
 							timer_send_beacon(&etat);
-				 			//if(DEBUG){print("ok MAC <,t_send_beacon is set \n\r");	}		
 						}
 					}else{						//the host
 						etat.state = WAIT_SYNCHRONE;
@@ -238,11 +210,11 @@ interrupt(PORT1_VECTOR) Buttopn(void)
 
 	Uart_Init();
 
-	MRFI_WakeUp();
-	MRFI_RxOn(); 
-
 	Scan_Init(&etat);			//open timer B for scan
 	Start_Timer_Surveille();		//open timer for surveille
+
+	MRFI_WakeUp();
+	MRFI_RxOn(); 
 
 	print("\n\r");
 	print("command: \n\r");
@@ -250,6 +222,7 @@ interrupt(PORT1_VECTOR) Buttopn(void)
 	print("r  : router table \n\r");
 	print("i  : sysinfo \n\r");
 	print("ESC: help \n\r");
+
 }
 
 /*
@@ -287,29 +260,37 @@ void MRFI_RxCompleteISR()
 				Delete_router(&etat , src);
 			}
 		}
-	
-		//if(DEBUG){print("ok got a beacon \n\r"); }		
 
 		if(rssi < -84 && etat.ID_Beacon == ID_Beacon_tmp && etat.ID_Beacon !=0 && etat.HOST == IS_NOT_CREATER){ //if the beacon source go far , choose another
 			Stop_Timer();
 		}else{
-			//P1OUT ^= 0x02;   			//rouge led
+
+			//show the ID_NETWORK
+			output[0] = ID_Network_tmp/10 + '0';
+			output[1] = ID_Network_tmp%10 + '0';
+			//show the MAC of the source
+			output[2] = ID_Beacon_tmp/10 + '0';
+			output[3] = ID_Beacon_tmp%10 + '0';
+			print(output);
+			if(rssi<0){rssi = -rssi;ss[0] = '-';}
+			ss[1] = rssi/100 + '0';
+			ss[2] = rssi%100/10 + '0';
+			ss[3] = rssi%10 + '0';
+			print(ss);
+			print("\n\r");
+
 			if(etat.synchrone == 0 && etat.HOST == IS_NOT_CREATER){	
 				Stop_Timer();
 				etat.ID_Network = ID_Network_tmp;		 
 				etat.ID_Beacon  = ID_Beacon_tmp;
 			 	etat.synchrone = 1;			//section critique
 
-				//if(DEBUG){print("ok same network RF change synchrone \n\r");}			
-
 				if(etat.MAC > etat.ID_Beacon ){
 					etat.state = WAIT_BEACON ;	//change the state
 					timer_send_beacon(&etat);	
-					//if(DEBUG){print("ok MAC > first syn ,t_send_beacon is set \n\r");}						
 				}else{
 					etat.state = WAIT_SYNCHRONE ;	//change the state
 					timer_synchrone(&etat);
-					//if(DEBUG){print("ok MAC < first syn ,t_synchrone is set \n\r");}						
 				}	
 			} 
 			if(ID_Network_tmp < etat.ID_Network){			//if there is 2 network collision
@@ -322,38 +303,17 @@ void MRFI_RxCompleteISR()
 				etat.ID_Beacon  = ID_Beacon_tmp;
 			 	etat.synchrone = 1;			//section critique
 
-				//if(DEBUG){print("ok new network  RF change synchrone \n\r");}			
-
 				if(etat.MAC > etat.ID_Beacon ){
 					etat.state = WAIT_BEACON;	//change the state
 					timer_send_beacon(&etat);	
-					//if(DEBUG){print("ok MAC > first syn ,t_send_beacon is set \n\r");}						
 				}else{
 					etat.state = WAIT_SYNCHRONE ;	//change the state
 					timer_synchrone(&etat);
-					//if(DEBUG){print("ok MAC < first syn ,t_synchrone is set \n\r");}						
 				}			
 			}
 		}
 		
 
-/*
-		//show the ID_NETWORK
-		output[0] = ID_Network_tmp/10 + '0';
-		output[1] = ID_Network_tmp%10 + '0';
-		//show the MAC of the source
-		output[2] = ID_Beacon_tmp/10 + '0';
-		output[3] = ID_Beacon_tmp%10 + '0';
-
-		print(output);
-
-		if(rssi<0){rssi = -rssi;ss[0] = '-';}
-		ss[1] = rssi/100 + '0';
-		ss[2] = rssi%100/10 + '0';
-		ss[3] = rssi%10 + '0';
-		print(ss);
-		print("\n\r");
-*/
 
 	}else if(Packet.flag == FDATA){
 		if(Packet.payload.data.Next_hop[3] == etat.MAC){ 	//if next hop is him, relay and change the next hop
@@ -374,7 +334,6 @@ void MRFI_RxCompleteISR()
 					EnQueue(&FIFO_Recieve,data);
 					//EnQueue(&FIFO_Send,data);
 				}
-				//if(DEBUG){print("\n\r Message Recieved ok "); }
 			}else{						//if it just nedd relay
 				P1OUT ^= 0x02; 
 				PacketRecieved.frame[13] = Find_next_hop(&etat , Packet.dst[3]);

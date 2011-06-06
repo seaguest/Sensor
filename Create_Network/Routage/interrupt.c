@@ -17,6 +17,18 @@ uint8_t Clock(void ){
 	return c;
 }
 
+/*
+*	configuration for clock
+*/
+void Set_Clock(void ){
+	//set clock 8MHZ
+	DCOCTL = 0x0;
+	BCSCTL1 = CALBC1_8MHZ;                    // ACLK, Set DCO to 8MHz
+	DCOCTL  = CALDCO_8MHZ;
+	BCSCTL2 |= DIVS_0;                         // SMCLK = DCO / 1
+	BCSCTL3 |= LFXT1S_2;			  // set frequency VLO = 12k
+}
+
 
 /*
 *	timer setting for synchronisation
@@ -49,18 +61,24 @@ void timer_send_beacon(Status* s){
 *	in sleep mode , we change the source of clock
 */
 void Start_Timer(Status* s){
+	TBCTL=TBSSEL_2 + MC_1;     		  
+	TBCCTL0 = CCIE;                        
+	TBCCR0 = (uint16_t) N_1MS;		 //delay 1ms
+/*
 	if(s->state == WAIT_SLEEP){			//if it is in mode sleep , we choose the VLO as clock source
 		TBCTL=TBSSEL_1 + MC_1;     		  
 		TBCCTL0 = CCIE;                          
-		TBCCR0 = (uint16_t)(DUREE_SLEEP * 12) ;	//12 means 1ms with VLO=12KHZ 	
+		TBCCR0 = (uint16_t)(DUREE_SLEEP/2 * 12) ;	//12 means 1ms with VLO=12KHZ 	
 	}else{
 		if(Clock() == 1){			//if now is TBSSEL_1
 			__bic_SR_register_on_exit(LPM3_bits);     // Clear LPM3 bits from 0(SR)	
+			Set_Clock();
 		}
 		TBCTL=TBSSEL_2 + MC_1;     		  
 		TBCCTL0 = CCIE;                        
 		TBCCR0 = (uint16_t) N_1MS;		 //delay 1ms
 	}
+*/
 }
 
 /*
@@ -77,8 +95,7 @@ void Start_Timer_Surveille(void ){
 */
 void Stop_Timer(void ){
 	TBCTL = MC_STOP;
-	TBCCTL0 = ~CCIE;                        
-	TBCCR0 = 0;
+//	TBCCTL0 = ~CCIE;                        
 }
 
 /*
@@ -112,7 +129,7 @@ void timer_message(Status * s){				//after sending message , wait for sleeping
 *	initialisation for timer sleep
 */
 void timer_sleep(Status * s){
-	s->Counter = 1; 			//leave them some time to listen;			 
+	s->Counter = (uint16_t) DUREE_SLEEP ; 			//leave them some time to listen;			 	
 	Start_Timer(s);
 }
 
