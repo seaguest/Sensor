@@ -53,7 +53,6 @@ void Start_Timer(Status* s){
 		TBCTL=TBSSEL_1 + MC_1;     		  
 		TBCCTL0 = CCIE;                          
 		TBCCR0 = (uint16_t)(DUREE_SLEEP/2 * 12) ;	//12 means 1ms with VLO=12KHZ 	
-		if(DEBUG){ print("ok timer mode LPM3 \n\r"); }
 	}else{
 		if(Clock() == 1){			//if now is TBSSEL_1
 			__bic_SR_register_on_exit(LPM3_bits);     // Clear LPM3 bits from 0(SR)	
@@ -61,7 +60,6 @@ void Start_Timer(Status* s){
 		TBCTL=TBSSEL_2 + MC_1;     		  
 		TBCCTL0 = CCIE;                        
 		TBCCR0 = (uint16_t) N_1MS;		 //delay 1ms
-		if(DEBUG){ print("ok timer normal \n\r"); }
 	}
 }
 

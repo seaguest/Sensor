@@ -102,18 +102,13 @@ interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
 				print(info);
 				print("\n\r");
 
+/*
 				print("HOST       :");
 				if(etat.HOST == IS_CREATER){
 					print("IS_CREATER\n\r");
 				}else if(etat.HOST == IS_NOT_CREATER){
 					print("IS_NOT_CREATER\n\r");
 				}
-
-				print("DST        :");
-				info[0] = etat.Dst/10 + '0' ;
-				info[1] = etat.Dst%10 + '0' ;
-				print(info);
-				print("\n\r");
 
 				print("synchrone  :");
 				info[0] = etat.synchrone%10 + '0' ;
@@ -154,34 +149,13 @@ interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
 				cnt[5] = 0 ;
 				print(cnt);
 				print("\n\r");
-/*
-				print("Voisin     :");
-				voisinage[0] = etat.Voisin/1000000000 + '0' ;
-				voisinage[1] = etat.Voisin%1000000000/100000000 + '0' ;
-				voisinage[2] = etat.Voisin%100000000/10000000 + '0' ;
-				voisinage[3] = etat.Voisin%10000000/1000000 + '0' ;
-				voisinage[4] = etat.Voisin%1000000/100000 + '0' ;
-				voisinage[5] = etat.Voisin%100000/10000 + '0' ;
-				voisinage[6] = etat.Voisin%10000/1000 + '0' ;
-				voisinage[7] = etat.Voisin%1000/100 + '0' ;
-				voisinage[8] = etat.Voisin%100/10 + '0' ;
-				voisinage[9] = etat.Voisin%10 + '0' ;
-				voisinage[10] = 0 ;
-				print(voisinage);
-				print("\n\r");
 */
-			}else if(rx == 'c'){		//clear synchrone
-				print("\n\r");
-				//Clear_Synchrone();	
-				etat.synchrone = 0;
 			}else if(rx == 27){		//help info
 				print("\n\r");
-				print("welcom to the chat system!  \n\r");
-				print("command help: \n\r");
-				print("o  : show who is on line ,and choose one XX \n\r");
-				print("r  : show router table \n\r");
-				print("i  : print info of system \n\r");
-				print("c  : clear synchrone \n\r");
+				print("command: \n\r");
+				print("o  : who is on line \n\r");
+				print("r  : router table \n\r");
+				print("i  : sysinfo \n\r");
 				print("ESC: help \n\r");
 			}else{
 				print("\n\r");
