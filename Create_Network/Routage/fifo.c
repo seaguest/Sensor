@@ -1,10 +1,18 @@
 #include "fifo.h" 
 #include "string.h" 
 
+/*
+*	we use a FIFO for sending and recieving the message 
+*	here are the functions of manipuling the FIFO
+*/
 
+
+/*
+*	initialisation for a FIFO
+*/
 int InitQueue(QList *Q)
 {
-	Q->front = (QNode *)malloc(sizeof(QNode));  
+	Q->front = (QNode *)malloc(sizeof(QNode));  	//apply for the memory
 	Q->rear = Q->front ;
 	if(!Q->front)
 		return 0;	
@@ -13,6 +21,24 @@ int InitQueue(QList *Q)
 	return 1;
 }
 
+/*
+*	clean the FIFO
+*/
+void CleanQueue(QList *Q)
+{
+	QLink p = Q->front;
+	while(p != NULL){
+		Q->front = Q->front->next;
+		free(p);
+		p = Q->front;
+	}  
+	Q->rear = NULL;       
+}
+
+
+/*
+*	check if the FIFO is empty
+*/
 int IsEmpty(QList *Q)
 {
 	if(Q){					// if Q is not null
@@ -25,6 +51,9 @@ int IsEmpty(QList *Q)
 	return 0;
 }
 
+/*
+*	calcule the lenth of the FIFO
+*/
 int Length(QList *Q)
 {
 	int l = 0;
@@ -36,6 +65,9 @@ int Length(QList *Q)
 	return l;
 }
 
+/*
+*	search an element in the FIFO
+*/
 int Search(QList *Q ,QElemtype e)
 {
 	QLink p = Q->front;
@@ -49,7 +81,9 @@ int Search(QList *Q ,QElemtype e)
 	return 0;
 }
 
-
+/*
+*	enqueue an element in the FIFO
+*/
 int EnQueue(QList *Q,QElemtype e)
 {
 	QLink p = (QNode *)malloc(sizeof(QNode));   
@@ -62,7 +96,10 @@ int EnQueue(QList *Q,QElemtype e)
 	return 1;
 }
 
-QElemtype DeQueue(QList *Q)		//get the head
+/*
+*	dequeue an element from the FIFO
+*/
+QElemtype DeQueue(QList *Q)	
 {
 	QElemtype e;
 	QNode *p;
@@ -81,41 +118,4 @@ QElemtype DeQueue(QList *Q)		//get the head
 	}
 	return 0;
 }
-
-
-
-/*
-int main()
-{
-	QList Q;
-	InitQueue(&Q);
-	char c,x = 'z';
-	while(1){
-
-		printf("\ninput fifo!\n");
-		while ((c = getchar()) != '\n')
-		{
-			EnQueue(&Q,c);
-		}
-
-		printf("enqueue ok!\n");
-		printf("\n size is %d \n", Length(&Q));
-
-
-		if(Search(&Q, ' ')){
-			printf("YES find it!\n");
-			while (!IsEmpty(&Q))	//evry time one message
-			{
-				c = DeQueue(&Q);
-				if( c == ' ' ){
-					break;
-				}
-			}
-		}else{
-			printf("NO!\n");
-		}
-	}
-	return 0;
-}
-*/
 

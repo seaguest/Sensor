@@ -31,6 +31,8 @@
 
 #define NO_NETWORK		0x0
 
+#define  DEBUG   0			//if debug or not
+
 
 // Definition des flags
 #define FDATA 	0x0F
@@ -92,12 +94,13 @@ typedef struct
 
 typedef struct
 {
-	uint8_t state;				//first time ;initialisation
-	uint8_t ID_Network;			//no network at first
-	uint8_t MAC;				//MAC	
-	uint8_t synchrone;			//if it had recieved beacon
+	uint8_t state;				 
+	uint8_t ID_Network;			 
+	uint8_t MAC;				 
+	uint8_t synchrone;	
+	uint8_t synchrone_old;			 		 
 	uint8_t HOST;
-	uint8_t ID_Beacon;			//from who we get the beacon
+	uint8_t ID_Beacon;			 
 	uint8_t Dst;
 	uint16_t Counter; 			 
 	uint16_t Surveille_Cnt; 			 
@@ -105,8 +108,6 @@ typedef struct
 	uint32_t Voisin;	
 	mRip Route_table[N_SLOT];	 
 } Status;
-
-
 
 #endif
 

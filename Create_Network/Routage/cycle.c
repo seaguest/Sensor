@@ -7,9 +7,25 @@
 #include "fifo.h"
 #include "route.h"
 
+/*
+*	this file records the activites during one duty cycle
+*	contains the functions of sending message , sending beacon ,sending rip
+*/
 
+
+/*
+*	transform the struct to the mrfiPacket for sending	 
+*/
 void SendmPacket(mPacket *src ,mrfiPacket_t *dst){
+	//char output[10] = "";
+	//char ss[13] = "";
 	uint8_t i;
+	uint32_t tmp;
+	//uint32_t s1 = 255;
+	//uint32_t s2 = 255*255;
+	//uint32_t s3 = 255*255*255;
+
+
 	dst->frame[0] = src->length;
 	for(i = 0;i <4;i++){
 		dst->frame[i+1] = src->src[i];
@@ -42,13 +58,69 @@ void SendmPacket(mPacket *src ,mrfiPacket_t *dst){
 	}else if(src->flag == FBEACON){
 		dst->frame[10] = src->payload.beacon.ID_Network;
 		dst->frame[11] = src->payload.beacon.ID_Slot;
-		dst->frame[12] = (uint8_t) (src->payload.beacon.Voisin/(255*255*255));
-		dst->frame[13] = (uint8_t) ((src->payload.beacon.Voisin%(255*255*255))/(255*255));
-		dst->frame[14] = (uint8_t) ((src->payload.beacon.Voisin%(255*255))/255);
-		dst->frame[15] = (uint8_t) (src->payload.beacon.Voisin%255);
+
+		tmp = (uint32_t ) src->payload.beacon.Voisin;
+		dst->frame[12] = (uint8_t) ( tmp/(255*255*255) );
+		dst->frame[13] = (uint8_t) ((tmp%(255*255*255))/(255*255));
+		dst->frame[14] = (uint8_t) ((tmp%(255*255))/255);
+		dst->frame[15] = (uint8_t) ( tmp%255 );
+
+/*
+		if(tmp >= s3){
+				print("fault 1 \n\r");
+			dst->frame[12] = (uint8_t) ( tmp/(255*255*255) );
+			dst->frame[13] = (uint8_t) ((tmp%(255*255*255))/(255*255));
+			dst->frame[14] = (uint8_t) ((tmp%(255*255))/255);
+			dst->frame[15] = (uint8_t) ( tmp%255 );
+		}else if(tmp >= s2){
+				print("fault 2 \n\r");
+			dst->frame[12] = 0;
+			dst->frame[13] = (uint8_t) ((tmp%(255*255*255))/(255*255));
+			dst->frame[14] = (uint8_t) ((tmp%(255*255))/255);
+			dst->frame[15] = (uint8_t) ( tmp%255 );
+
+		}else if(tmp >= s1){
+				print("great 3 \n\r");
+			dst->frame[12] = 0;
+			dst->frame[13] = 0;
+			dst->frame[14] = (uint8_t) ((tmp%(255*255))/255);
+			dst->frame[15] = (uint8_t) ( tmp%255 );
+		}else{
+				print("fault 4 \n\r");
+			dst->frame[12] = 0;
+			dst->frame[13] = 0;
+			dst->frame[14] = 0;
+			dst->frame[15] = (uint8_t) ( tmp%255 );
+		}		
+ 
+		if(DEBUG){
+			print("split :\n\r");
+			ss[0] = dst->frame[12]/100 + '0' ;
+			ss[1] = dst->frame[12]%100/10 + '0' ;
+			ss[2] = dst->frame[12]%10 + '0' ;
+
+			ss[3] = dst->frame[13]/100 + '0' ;
+			ss[4] = dst->frame[13]%100/10 + '0' ;
+			ss[5] = dst->frame[13]%10 + '0' ;
+
+			ss[6] = dst->frame[14]/100 + '0' ;
+			ss[7] = dst->frame[14]%100/10 + '0' ;
+			ss[8] = dst->frame[14]%10 + '0' ;
+
+			ss[9] = dst->frame[15]/100 + '0' ;
+			ss[10] = dst->frame[15]%100/10 + '0' ;
+			ss[11] = dst->frame[15]%10 + '0' ;
+
+			print(ss);
+			print("\n\r");
+		}
+*/
 	}	
 }
 
+/*
+*	transform the mrfiPacket to the struct for recieving
+*/
 void RecievemPacket(mrfiPacket_t *src ,mPacket *dst){
 	uint8_t i;
 	dst->length = src->frame[0];
@@ -79,7 +151,9 @@ void RecievemPacket(mrfiPacket_t *src ,mPacket *dst){
 	}	
 }
 
-
+/*
+*	send beacon 
+*/
 void Send_beacon(Status * s){				//send the packet of beacon
 	char output[4] = "";
 
@@ -118,10 +192,13 @@ void Send_beacon(Status * s){				//send the packet of beacon
 		output[3] = s->MAC%10 + '0';
 	}
 
-//	print(output);		//important of writing number not strlen
+//	print(output);		 
 }
 
-void Send_rip(Status * s){				//send the packet of beacon
+/*
+*	send rip 
+*/
+void Send_rip(Status * s){			
 	uint8_t i, cnt=0;
 
 	mrfiPacket_t PacketToSend;
@@ -131,7 +208,6 @@ void Send_rip(Status * s){				//send the packet of beacon
 	Packet.dst[3] = BROADCAST;
 	//fill in the beacon flag
 	Packet.flag  = FRIP; 
-	//fill in the ID_NETWORK and ID_NODE
 
 	for(i=0;i<32;i++){					 
 		if(s->Route_table[i].Dst[3]!=0){ 
@@ -150,11 +226,14 @@ void Send_rip(Status * s){				//send the packet of beacon
 
 	if(cnt!=0){
 		//send the rip
-		MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_CCA);
+		//MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_CCA);
+		MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);
 	}
 }
 
-
+/*
+*	read the message in the FIFO_Recieve and find if there is '\r' , if yes then print 
+*/
 void Recieve_message(Status * s, QList *p){	//Recieve the message
 	char output[MRFI_MAX_FRAME_SIZE-10]="";
 	uint8_t i ,k;
@@ -187,6 +266,9 @@ void Recieve_message(Status * s, QList *p){	//Recieve the message
 	}
 }
 
+/*
+*	write the message to the FIFO_Send with the adr 
+*/
 void Send_message(Status * s, QList *Q, uint8_t  dst){	//send the message
 
 	mrfiPacket_t PacketToSend;
@@ -228,11 +310,14 @@ void Send_message(Status * s, QList *Q, uint8_t  dst){	//send the message
 		SendmPacket(&Packet, &PacketToSend);
 
 		//send the message
-		MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_CCA);
-		//MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);
+		//MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_CCA);
+		MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);
 	}
 }
 
-void Sleep(){
+/*
+*	sleeo , jump the mode LPM3
+*/
+void Sleep(void ){
 	__bis_SR_register(LPM3_bits + GIE);       // Enter LPM0 w/ interrupt
 }

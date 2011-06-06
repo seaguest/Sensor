@@ -8,10 +8,11 @@ void timer_sleep(Status * s);				//after sending message , wait for sleeping
 void timer_synchrone(Status* s);
 void timer_send_beacon(Status* s);
 
-void Button_Init();
+void Button_Init(void );
 void Start_Timer(Status* s);
-void Stop_Timer();
+void Stop_Timer(void );
 
-void Start_Timer_Surveille();
+void Start_Timer_Surveille(void );
+uint8_t Clock(void );
 
 #endif

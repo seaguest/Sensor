@@ -17,7 +17,7 @@ typedef struct{
 }QList;
 
 int InitQueue(QList *Q);
-int DestoryQueue(QList *Q);
+void CleanQueue(QList *Q);
 int EnQueue(QList *Q,QElemtype e);
 QElemtype DeQueue(QList *Q);
 int IsEmpty(QList *Q);

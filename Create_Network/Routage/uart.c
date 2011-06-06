@@ -3,13 +3,30 @@
 #include <mrfi.h> 
 #include "fifo.h" 
 #include "route.h" 
+#include "string.h" 
+#include "synchrone.h" 
 
+
+/*
+*	we use the uart to communicate with the MCU
+*	setting of the uart and iteraction with the command 
+*/
 
 extern Status etat;
 uint8_t UART_MODE = 0 , time = 0;
 char dest[3]="";
 
-void Uart_Init(){
+/*
+*	print a string in the minicom 
+*/
+void print(char *s){
+	TXString(s, strlen(s));
+}
+
+/*
+*	initialisation of uart
+*/
+void Uart_Init(void){
 	P3SEL    |= 0x30;     	// P3.4,5 = USCI_A0 TXD/RXD
 	UCA0CTL1  = UCSSEL_2; 	// SMCLK
 	UCA0BR0   = 0x41;     	// 9600 from 8Mhz
@@ -19,7 +36,9 @@ void Uart_Init(){
 	IE2      |= UCA0RXIE; 	// Enable USCI_A0 RX interrupt
 }  
 
-// taken from an earlier version of bsp_board.c
+/*
+*	send the string to the serial interface 
+*/
 void TXString(char* string, int length)
 {
 	int pointer;
@@ -30,35 +49,140 @@ void TXString(char* string, int length)
 	}
 }
 
-
+/*
+*	interruption of uart
+*	iteraction with the command typed in
+*/
 void USCI0RX_ISR(void);
 interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
 {
 	char rx = UCA0RXBUF;
+	char info[3] = "";
+	char cnt[6] = "";
+	char voisinage[11] = "";
+
+	uint16_t clock ,tmp = ( 3<<8 );
+
 	if(rx == 27){		//ESC
 		UART_MODE = 0;
+		time = 0;
+		etat.Dst = 0;
+		CleanQueue(&FIFO_Send);
+		CleanQueue(&FIFO_Recieve);
+		InitQueue(&FIFO_Send);
+		InitQueue(&FIFO_Recieve);
 	}
 
 	switch (UART_MODE){
 		case 0:
-			if(rx == 's'){
+			if(rx == 'o'){			// show people online 
 				print("\n\r");
-				Show_Online(&etat);	// show people online 
+				Show_Online(&etat);	
 				UART_MODE = 1;
 			}else if(rx == 'r'){		//show router table
 				print("\n\r");
 				Show_router(&etat);
-				UART_MODE = 1;
-			}else if(rx == 'c'){		//continue to talk
+			}else if(rx == 'i'){		//print information
 				print("\n\r");
-				UART_MODE = 2;
+				print("ID_Network :");
+				info[0] = etat.ID_Network/10 + '0' ;
+				info[1] = etat.ID_Network%10 + '0' ;
+				print(info);
+				print("\n\r");
+
+				print("MAC        :");
+				info[0] = etat.MAC/10 + '0' ;
+				info[1] = etat.MAC%10 + '0' ;
+				print(info);
+				print("\n\r");
+
+				print("ID_Beacon  :");
+				info[0] = etat.ID_Beacon/10 + '0' ;
+				info[1] = etat.ID_Beacon%10 + '0' ;
+				print(info);
+				print("\n\r");
+
+				print("HOST       :");
+				if(etat.HOST == IS_CREATER){
+					print("IS_CREATER\n\r");
+				}else if(etat.HOST == IS_NOT_CREATER){
+					print("IS_NOT_CREATER\n\r");
+				}
+
+				print("DST        :");
+				info[0] = etat.Dst/10 + '0' ;
+				info[1] = etat.Dst%10 + '0' ;
+				print(info);
+				print("\n\r");
+
+				print("synchrone  :");
+				info[0] = etat.synchrone%10 + '0' ;
+				info[1] = 0 ;
+				print(info);
+				print("\n\r");
+
+				print("state      :");
+				switch(etat.state){
+					case WAIT_BEACON:
+						print("WAIT BEACON \n\r");
+						break;
+					case WAIT_SYNCHRONE:
+						print("WAIT_SYNCHRONE \n\r");
+						break;
+					case WAIT_MESSAGE:
+						print("WAIT_MESSAGE \n\r");
+						break;
+					case WAIT_SLEEP:
+						print("WAIT_SLEEP \n\r");
+						break;
+				}
+
+				print("clock      :");
+				clock = (TBCTL & tmp)>>8 ;
+				if(clock == 1){		//vlo
+					print("VLO 12KHZ \n\r");
+				}else if(clock == 2){	//dco
+					print("DCO 8MHZ \n\r");
+				}
+
+				print("Counter    :");
+				cnt[0] = etat.Counter/10000 + '0' ;
+				cnt[1] = etat.Counter%10000/1000 + '0' ;
+				cnt[2] = etat.Counter%1000/100 + '0' ;
+				cnt[3] = etat.Counter%100/10 + '0' ;
+				cnt[4] = etat.Counter%10 + '0' ;
+				cnt[5] = 0 ;
+				print(cnt);
+				print("\n\r");
+/*
+				print("Voisin     :");
+				voisinage[0] = etat.Voisin/1000000000 + '0' ;
+				voisinage[1] = etat.Voisin%1000000000/100000000 + '0' ;
+				voisinage[2] = etat.Voisin%100000000/10000000 + '0' ;
+				voisinage[3] = etat.Voisin%10000000/1000000 + '0' ;
+				voisinage[4] = etat.Voisin%1000000/100000 + '0' ;
+				voisinage[5] = etat.Voisin%100000/10000 + '0' ;
+				voisinage[6] = etat.Voisin%10000/1000 + '0' ;
+				voisinage[7] = etat.Voisin%1000/100 + '0' ;
+				voisinage[8] = etat.Voisin%100/10 + '0' ;
+				voisinage[9] = etat.Voisin%10 + '0' ;
+				voisinage[10] = 0 ;
+				print(voisinage);
+				print("\n\r");
+*/
+			}else if(rx == 'c'){		//clear synchrone
+				print("\n\r");
+				//Clear_Synchrone();	
+				etat.synchrone = 0;
 			}else if(rx == 27){		//help info
 				print("\n\r");
-				print(" bienvenu, vous puvez chat avec d'autre \n\r");
-				print(" command help: \n\r");
-				print(" s: show who is on line ,and choose one XX \n\r");
-				print(" r: show router table \n\r");
-				print(" c: start to chat \n\r");
+				print("welcom to the chat system!  \n\r");
+				print("command help: \n\r");
+				print("o  : show who is on line ,and choose one XX \n\r");
+				print("r  : show router table \n\r");
+				print("i  : print info of system \n\r");
+				print("c  : clear synchrone \n\r");
+				print("ESC: help \n\r");
 			}else{
 				print("\n\r");
 				print("please enter s or r or ESC\n\r");
@@ -80,7 +204,7 @@ interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
 						print("you choose \n\r");
 						print(dest);
 						print("\n\r");
-						print("OK ,you can enter c to start \n\r");
+						print("OK ,you can start talking... \n\r");
 					}		
 				}
 			}else{

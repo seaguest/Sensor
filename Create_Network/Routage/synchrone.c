@@ -10,56 +10,103 @@
 #include "route.h"
 
 
-Status etat;			//record all the status
+/*
+*	the synchronisation is updated when sensor gets a packet of beacon
+*	the synchronisation is redone every duty cycle
+*	when it gets a packet ,check the flaf then deals with it 
+*/
+
+Status etat;					//record all the status
 extern uint8_t UART_MODE;
 uint8_t RIP_Prepared = 0;
+uint8_t permission = 0;
 
-//char Message[4][20] = {"hello Node1","hello Node2","hello Node3","hello Node4",};
 
+void mutex(uint8_t *u ,uint8_t v ){
+	while(permission){}
+	permission = 1;
+	*u = v;
+	permission = 0;
+}
+
+/*
+*	for the changing the value of etat.synchrone ,we should use semaphore to avoid collisions
+*	we take the person algorithme
+*/
+//flag[2] is boolean; and turn is an integer
+uint8_t flag[2]  = {0, 0};
+uint8_t turn;
+
+/*
+*	Set_Synchrone  , in the ISR of timer
+*/
+void Set_Synchrone(void ){
+	flag[0] = 1;
+	turn = 1;
+	while (flag[1] == 1 && turn == 1){}	//wait if the varible is busy 
+	etat.synchrone = 1;			//section critique
+	flag[0] = 0;
+}
+
+/*
+*	clear_Synchrone , in the ISR of RF
+*/
+void Clear_Synchrone(void ){
+	flag[1] = 1;
+	turn = 0;
+	while (flag[0] == 1 && turn == 0){}	//wait if the varible is busy 
+ 	etat.synchrone = 0;			//section critique
+	flag[1] = 0;
+}
+
+/*
+*	when find the network is down then after certain time then create another
+*/
 void Delay_Rand(uint32_t mod){			//wait for 0 ~ 100 ms
 	volatile uint32_t x;
 	x = rand()%mod;
 	while(x--);
 }
 
-void delay_reste_slot(){			//5*n + 6
-	volatile uint16_t x = 2277-500;
-	while(x--);
-}
-
+/*
+*	initialisation for synchronisation
+*/
 void Synchrone_Init(uint8_t mac){
 	etat.state = WAIT_SCAN;			//first time ;initialisation
-	etat.ID_Network = NO_NETWORK;			//no network at first
+	etat.ID_Network = NO_NETWORK;		//no network at first
 	etat.MAC = mac;
 	etat.HOST = IS_NOT_CREATER ;
-	etat.synchrone = 0;
+	Clear_Synchrone();
 	etat.ID_Beacon = 0;
 	etat.Dst = 0;
 	etat.Counter = 0;
 	etat.Surveille_Cnt = 0; 			 
 	etat.Surveille_Cnt_Old = 0;
-	Init_voisin(&etat);			//reset the table of route
-	Init_route_table(&etat);
+	Init_voisin(&etat);			
+	Init_route_table(&etat);		//reset the table of route
 }
 
 
+/*
+*	interruption of timer A 
+*	maintenance of network and update router table
+*/
 void Timer_Surveille(void);
 interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
 {
-	//Init_voisin(&etat);			//reset the table of route
-	//Init_route_table(&etat);
-
-	RIP_Prepared = 1;			//signal for rip
-	if(etat.HOST == IS_NOT_CREATER){
-		if(etat.Surveille_Cnt != etat.Surveille_Cnt_Old){	 
+	RIP_Prepared = 1;			//signal for rip, after this it has the right to send rip
+	if(etat.HOST == IS_NOT_CREATER){	//if not the HOST
+		if(etat.Surveille_Cnt != etat.Surveille_Cnt_Old){//if the network is OK , contuinue	 
 			etat.Surveille_Cnt_Old = etat.Surveille_Cnt;
-		}else{
+		}else{				//if the network is down
 			Delay_Rand(65535);			//delay some time
 	 		etat.ID_Network = etat.MAC;
 	  		etat.HOST = IS_CREATER;
-			etat.synchrone = 1;
+			Set_Synchrone();	//section critique
+			//mutex(&etat.synchrone, 1);	//change the state
 			etat.ID_Beacon = 0;
-	 		etat.state = WAIT_SYNCHRONE;		//change the state
+			mutex(&etat.state, WAIT_SYNCHRONE);	//change the state
+	 		//etat.state = WAIT_SYNCHRONE;		//change the state
 			timer_synchrone(&etat);
 			Send_beacon(&etat);
 			P1OUT |= 0x02;   			//jaune led
@@ -67,43 +114,66 @@ interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
 	} 
 }
 
+/*
+*	interruption of timer B
+*	synchronisation and every part of duty cycle
+*	a automate for the duty cycle 
+*/
 void Timer_B0(void);
 interrupt(TIMERB0_VECTOR) Timer_B0(void)
 {
+
+	if(Clock() == 1 && etat.state!=WAIT_SLEEP){	  // only sleep choose 1 ,vlo	 
+		__bic_SR_register_on_exit(LPM3_bits);     // Clear LPM3 bits from 0(SR)	
+		TBCTL=TBSSEL_2 + MC_1;     		  
+		TBCCTL0 = CCIE;                        
+		TBCCR0 = (uint16_t) N_1MS;		 //delay 1ms 
+	}
+
 	etat.Counter--;
 	if(etat.Counter == 0){
 		Stop_Timer();
 		if(etat.state == WAIT_SCAN && etat.ID_Network == NO_NETWORK){
 	 		etat.ID_Network = etat.MAC;
 	  		etat.HOST = IS_CREATER;
-			etat.synchrone = 1;
-	 		etat.state = WAIT_SYNCHRONE;		//change the state
+			Set_Synchrone();	//section critique
+			//mutex(&etat.synchrone, 1);	//change the state
+			mutex(&etat.state, WAIT_SYNCHRONE);	//change the state
 			timer_synchrone(&etat);
 			Send_beacon(&etat);
-
 			P1OUT |= 0x02;   			//jaune led
 	 	}else{
 			switch(etat.state){
 				case WAIT_BEACON : 
+					if(DEBUG){ print("ok beacon is over \n\r"); }
 					if(etat.HOST == IS_NOT_CREATER){
-						etat.state = WAIT_SYNCHRONE;
+						mutex(&etat.state, WAIT_SYNCHRONE);	//change the state
+						//etat.state = WAIT_SYNCHRONE;
 						if(etat.ID_Beacon < etat.MAC){
-							//timer_synchrone(&etat);
+							timer_synchrone(&etat);
+							if(DEBUG){ print("ok MAC > t_synchrone is set \n\r"); }
 							P1OUT ^= 0x01;   			//rouge led
 							Send_beacon(&etat);			//send beacon
-							timer_synchrone(&etat);
 						}else{			
 							Stop_Timer();	
-							etat.synchrone = 0;
+							if(DEBUG){ print("ok MAC < timer stoped \n\r"); }
 							P1OUT ^= 0x01;   			//rouge led
 							Send_beacon(&etat);			//send beacon
 						}
-					}			
+					}
 					break;
 				case WAIT_SYNCHRONE : 
-					etat.state = WAIT_MESSAGE;
+					if(DEBUG){ print("ok synchrone is over \n\r");}
+					mutex(&etat.state, WAIT_MESSAGE);	//change the state
+					//etat.state = WAIT_MESSAGE;
 					//time for message
 					timer_message(&etat);	
+					if(DEBUG){ print("ok t_message is set \n\r"); }	
+					if(etat.HOST == IS_NOT_CREATER ){
+						//Clear_Synchrone();	//section critique
+						mutex(&etat.synchrone, 0);	//change the state
+						if(DEBUG){ print("ok WAIT_MESSAGE change synchrone \n\r"); }	
+					}
 
 					Send_message(&etat, &FIFO_Send ,etat.Dst);
 					Recieve_message(&etat, &FIFO_Recieve);
@@ -113,25 +183,40 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 					}
 					break;
 				case WAIT_MESSAGE :
-					etat.state = WAIT_SLEEP;
-					timer_sleep(&etat);
+					if(DEBUG){ print("ok message is over \n\r");}	
+					mutex(&etat.state, WAIT_SLEEP);	//change the state
+					//etat.state = WAIT_SLEEP;
 					//time for sleep
-					//MRFI_RxIdle();		
+					timer_sleep(&etat);
+					if(DEBUG){ print("ok t_sleep is set \n\r");	}	
+					if(etat.HOST == IS_NOT_CREATER ){
+						//Clear_Synchrone();	//section critique
+						mutex(&etat.synchrone, 0);	//change the state
+						if(DEBUG){ print("ok WAIT_SLEEP change synchrone \n\r");}			
+					}
 					Sleep();
+					if(DEBUG){ print("ok fall in sleep \n\r");	}	
 					break;
 				case WAIT_SLEEP :
+					if(DEBUG){ print("ok sleep is over \n\r");	}	
 					__bic_SR_register_on_exit(LPM3_bits);     // Clear LPM3 bits from 0(SR)	
-					//MRFI_RxOn();				
 					if(etat.HOST == IS_NOT_CREATER ){
-						etat.state = WAIT_BEACON;
+						mutex(&etat.state, WAIT_BEACON);	//change the state
+						//etat.state = WAIT_BEACON;
+						mutex(&etat.synchrone, 0);	//change the state
+						//Clear_Synchrone();	//section critique
+				 		if(DEBUG){ print("ok WAIT_BEACON change synchrone \n\r");	}		
+
 						if(etat.ID_Beacon < etat.MAC){
 							Stop_Timer();
-							etat.synchrone = 0;
+				 			if(DEBUG){ print("ok MAC > ,stop timer \n\r");	}		
 						}else{
 							timer_send_beacon(&etat);
+				 			if(DEBUG){ print("ok MAC <,t_send_beacon is set \n\r");	}		
 						}
 					}else{						//the host
-				 		etat.state = WAIT_SYNCHRONE;		//change the state
+						mutex(&etat.state, WAIT_SYNCHRONE);	//change the state
+				 		//etat.state = WAIT_SYNCHRONE;		//change the state
 						timer_synchrone(&etat);
 						P1OUT ^= 0x01;   			//rouge led
 						Send_beacon(&etat);
@@ -145,10 +230,10 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 	}
 }
 
-void print(char *s){
-	TXString(s, strlen(s));
-}
-
+/*
+*	interruption of button
+*	initialisation for scanning ,uart , cc2500 and timers  
+*/
 void Buttopn(void);
 interrupt(PORT1_VECTOR) Buttopn(void)
 {
@@ -168,20 +253,26 @@ interrupt(PORT1_VECTOR) Buttopn(void)
 	Scan_Init(&etat);			//open timer B for scan
 	Start_Timer_Surveille();		//open timer for surveille
 
-	print(" bienvenu, vous puvez chat avec d'autre \n\r");
-	print(" command help: \n\r");
-	print(" s: show who is on line ,and choose one XX \n\r");
-	print(" r: show router table \n\r");
-	print(" c: start to chat \n\r");
+	print("\n\r");
+	print("welcom to the chat system!  \n\r");
+	print("command help: \n\r");
+	print("o  : show who is on line ,and choose one XX \n\r");
+	print("r  : show router table \n\r");
+	print("i  : print info of system \n\r");
+	print("ESC: help \n\r");
 }
 
+/*
+*	interruption of recieving packet
+*	trait the packet with the flag
+*/
 void MRFI_RxCompleteISR()
 {
 	mrfiPacket_t PacketRecieved;
 	mPacket Packet;
 	char rssi ;
-	char ss[9] = "";
 	char dest[3] = "";
+	char ss[5] = "";
 
 	uint8_t ID_Network_tmp, ID_Beacon_tmp ,src ,i ,data;
 	uint32_t voisin_voisin;					//the voisin of voisin
@@ -198,7 +289,7 @@ void MRFI_RxCompleteISR()
 		src  = Packet.src[3];
 		voisin_voisin = Packet.payload.beacon.Voisin;
 		rssi = PacketRecieved.rxMetrics[0]; 
-		if(rssi>-70){			//seuil avec pwr(0) ,distance 20cm
+		if(rssi>-68){			//seuil avec pwr(0) ,distance 20cm
 			Add_router(&etat , src, voisin_voisin);	//every time it recieve the beacon , update the route table
 		}else{
 			if(Is_voisin(&etat,src)){
@@ -206,49 +297,76 @@ void MRFI_RxCompleteISR()
 				Delete_router(&etat , src);
 			}
 		}
-/*
-	ss[0] = etat.Route_table[0].Dst[3];	 
-	ss[1] = etat.Route_table[0].Next_hop[3];
-	ss[2] = etat.Route_table[0].Metric;
-	ss[3] = etat.Route_table[2].Dst[3];	 
-	ss[4] = etat.Route_table[2].Next_hop[3];
-	ss[5] = etat.Route_table[2].Metric;
-	ss[6] = etat.Route_table[4].Dst[3];	 
-	ss[7] = etat.Route_table[4].Next_hop[3];
-	ss[8] = etat.Route_table[4].Metric;
-	print(ss);
-*/
-		if(etat.synchrone == 0  && etat.HOST == IS_NOT_CREATER){	
-			Stop_Timer();
-			etat.ID_Network = ID_Network_tmp;		 
-			etat.ID_Beacon  = ID_Beacon_tmp;
-			etat.synchrone = 1;
-			if(etat.MAC > etat.ID_Beacon ){
-		 		etat.state = WAIT_BEACON;		//in this state ; it can send beacon
-				timer_send_beacon(&etat);				
-			}else{
-		 		etat.state = WAIT_SYNCHRONE;		//in this state ; it can send beacon
-				timer_synchrone(&etat);
-			}	
-		} 
+	
+		if(DEBUG){ print("ok got a beacon \n\r"); }		
 
-		if(ID_Network_tmp < etat.ID_Network){			//if there is 2 network collision
-			if(etat.HOST == IS_CREATER){
-				etat.HOST = IS_NOT_CREATER;
-				P1OUT ^= 0x02;   			//jaune led
-			}	
+		if(rssi < -75 && etat.ID_Beacon == ID_Beacon_tmp && etat.ID_Beacon !=0){			//if the beacon source go far , choose another
 			Stop_Timer();
-			etat.ID_Network = ID_Network_tmp;		 
-			etat.ID_Beacon  = ID_Beacon_tmp;
-			etat.synchrone = 1;
-			if(etat.MAC > etat.ID_Beacon ){
-		 		etat.state = WAIT_BEACON;		//in this state ; it can send beacon
-				timer_send_beacon(&etat);				
-			}else{
-		 		etat.state = WAIT_SYNCHRONE;		//in this state ; it can send beacon
-				timer_synchrone(&etat);
-			}			
+		}else{
+			P1OUT ^= 0x02;   			//jaune led
+			if(etat.synchrone == 0 && etat.HOST == IS_NOT_CREATER){	
+				Stop_Timer();
+				etat.ID_Network = ID_Network_tmp;		 
+				etat.ID_Beacon  = ID_Beacon_tmp;
+
+				//Set_Synchrone();	//section critique
+				mutex(&etat.synchrone, 1);	//change the state
+				if(DEBUG){ print("ok same network RF change synchrone \n\r");}			
+
+				if(etat.MAC > etat.ID_Beacon ){
+					mutex(&etat.state, WAIT_BEACON);	//change the state
+			 		//etat.state = WAIT_BEACON;		//in this state ; it can send beacon
+					timer_send_beacon(&etat);	
+					if(DEBUG){ print("ok MAC > first syn ,t_send_beacon is set \n\r");}						
+				}else{
+					mutex(&etat.state, WAIT_SYNCHRONE);	//change the state
+			 		//etat.state = WAIT_SYNCHRONE;		//in this state ; it can send beacon
+					timer_synchrone(&etat);
+					if(DEBUG){ print("ok MAC < first syn ,t_synchrone is set \n\r");}						
+				}	
+			} 
+			if(ID_Network_tmp < etat.ID_Network){			//if there is 2 network collision
+				if(etat.HOST == IS_CREATER){
+					etat.HOST = IS_NOT_CREATER;
+					P1OUT ^= 0x02;   			//jaune led
+				}	
+				Stop_Timer();
+				etat.ID_Network = ID_Network_tmp;		 
+				etat.ID_Beacon  = ID_Beacon_tmp;
+				//Set_Synchrone();	//section critique
+				mutex(&etat.synchrone, 1);	//change the state
+				if(DEBUG){ print("ok new network  RF change synchrone \n\r");}			
+
+				if(etat.MAC > etat.ID_Beacon ){
+					mutex(&etat.state, WAIT_BEACON);	//change the state
+			 		//etat.state = WAIT_BEACON;		//in this state ; it can send beacon
+					timer_send_beacon(&etat);	
+					if(DEBUG){ print("ok MAC > first syn ,t_send_beacon is set \n\r");}						
+				}else{
+					mutex(&etat.state, WAIT_SYNCHRONE);	//change the state
+			 		//etat.state = WAIT_SYNCHRONE;		//in this state ; it can send beacon
+					timer_synchrone(&etat);
+					if(DEBUG){ print("ok MAC < first syn ,t_synchrone is set \n\r");}						
+				}			
+			}
 		}
+/*
+
+				print("Voisin     :");
+				output[0] = voisin_voisin/1000000000 + '0' ;
+				output[1] = voisin_voisin%1000000000/100000000 + '0' ;
+				output[2] = voisin_voisin%100000000/10000000 + '0' ;
+				output[3] = voisin_voisin%10000000/1000000 + '0' ;
+				output[4] = voisin_voisin%1000000/100000 + '0' ;
+				output[5] = voisin_voisin%100000/10000 + '0' ;
+				output[6] = voisin_voisin%10000/1000 + '0' ;
+				output[7] = voisin_voisin%1000/100 + '0' ;
+				output[8] = voisin_voisin%100/10 + '0' ;
+				output[9] = voisin_voisin%10 + '0' ;
+				output[10] = 0 ;
+				print(output);
+				print("\n\r");
+*/
 
 		//show the ID_NETWORK
 		output[0] = ID_Network_tmp/10 + '0';
@@ -256,9 +374,17 @@ void MRFI_RxCompleteISR()
 		//show the MAC of the source
 		output[2] = ID_Beacon_tmp/10 + '0';
 		output[3] = ID_Beacon_tmp%10 + '0';
+/*
+		print(output);
 
-		//print(output);
+		if(rssi<0){rssi = -rssi;ss[0] = '-';}
+		ss[1] = rssi/100 + '0';
+		ss[2] = rssi%100/10 + '0';
+		ss[3] = rssi%10 + '0';
+		print(ss);
+		print("\n\r");
 
+*/
 	}else if(Packet.flag == FDATA){
 		if(Packet.payload.data.Next_hop[3] == etat.MAC){ 	//if next hop is him, relay and change the next hop
 			if(Packet.dst[3] == etat.MAC){			//if it is really for me
@@ -278,6 +404,7 @@ void MRFI_RxCompleteISR()
 					EnQueue(&FIFO_Recieve,data);
 					//EnQueue(&FIFO_Send,data);
 				}
+				if(DEBUG){ print("\n\r Message Recieved ok "); }
 			}else{						//if it just nedd relay
 				P1OUT ^= 0x02; 
 				PacketRecieved.frame[13] = Find_next_hop(&etat , Packet.dst[3]);
@@ -292,7 +419,7 @@ void MRFI_RxCompleteISR()
 			}
 		}
 	}else if(Packet.flag == FRIP){		//recieve the packet of rip then update the router table
-		Update_rip(&etat ,Packet);
+		Update_rip(&etat ,&Packet);
 	}
 }
 

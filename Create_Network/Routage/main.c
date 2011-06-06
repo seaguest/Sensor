@@ -10,8 +10,14 @@
 #include "fifo.h" 
 #include "route.h" 
 
-void Init_config(){
+
+/*
+*	global initialisation 
+*/
+void Init_config(void ){
 	WDTCTL = WDTPW + WDTHOLD;
+//	WDTCTL = WDT_ADLY_1000;                    // WDT 1s, ACLK, interval timer
+//	IE1 |= WDTIE;                             // Enable WDT interrupt
 
 	//set clock 8MHZ
 	DCOCTL = 0x0;
@@ -25,12 +31,20 @@ void Init_config(){
 	P1OUT |= 0x02;
 
 	Button_Init();
-	Synchrone_Init(5);			//set MAC
+	Synchrone_Init(7);			//set MAC
 
 	InitQueue(&FIFO_Send);
 	InitQueue(&FIFO_Recieve);
 }
 
+/*
+
+// Watchdog Timer interrupt service routine
+void Timer_WDT(void);
+interrupt(WDT_VECTOR) Timer_WDT(void){
+	P1OUT ^= 0x01;                            // Toggle P1.0 using exclusive-OR
+}
+*/
 
 int main( void )
 {
