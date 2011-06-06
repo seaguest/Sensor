@@ -166,10 +166,7 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 					timer_message(&etat);	
 					//if(DEBUG){print("ok t_message is set \n\r"); }	
 					if(etat.HOST == IS_NOT_CREATER ){
-						//Clear_Synchrone();	//section critique
 					 	etat.synchrone = 0;			//section critique
-
-						//if(DEBUG){print("ok WAIT_MESSAGE change synchrone \n\r"); }	
 					}
 /*
 					Send_message(&etat, &FIFO_Send ,etat.Dst);
@@ -186,6 +183,10 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 					//time for sleep
 					timer_sleep(&etat);
 					//if(DEBUG){print("ok t_sleep is set \n\r");	}	
+
+					if(etat.HOST == IS_NOT_CREATER ){
+					 	etat.synchrone = 0;			//section critique
+					}
 
 					Sleep();
 					//if(DEBUG){print("ok fall in sleep \n\r");	}	
@@ -278,7 +279,7 @@ void MRFI_RxCompleteISR()
 		src  = Packet.src[3];
 		voisin_voisin = Packet.payload.beacon.Voisin;
 		rssi = PacketRecieved.rxMetrics[0]; 
-		if(rssi>-68){			//seuil avec pwr(0) ,distance 20cm
+		if(rssi>-72){			//seuil avec pwr(0) ,distance 20cm
 			Add_router(&etat , src, voisin_voisin);	//every time it recieve the beacon , update the route table
 		}else{
 			if(Is_voisin(&etat,src)){
@@ -289,10 +290,10 @@ void MRFI_RxCompleteISR()
 	
 		//if(DEBUG){print("ok got a beacon \n\r"); }		
 
-		if(rssi < -75 && etat.ID_Beacon == ID_Beacon_tmp && etat.ID_Beacon !=0){			//if the beacon source go far , choose another
+		if(rssi < -84 && etat.ID_Beacon == ID_Beacon_tmp && etat.ID_Beacon !=0 && etat.HOST == IS_NOT_CREATER){ //if the beacon source go far , choose another
 			Stop_Timer();
 		}else{
-			P1OUT ^= 0x02;   			//jaune led
+			//P1OUT ^= 0x02;   			//rouge led
 			if(etat.synchrone == 0 && etat.HOST == IS_NOT_CREATER){	
 				Stop_Timer();
 				etat.ID_Network = ID_Network_tmp;		 
@@ -334,13 +335,16 @@ void MRFI_RxCompleteISR()
 				}			
 			}
 		}
+		
+
+/*
 		//show the ID_NETWORK
 		output[0] = ID_Network_tmp/10 + '0';
 		output[1] = ID_Network_tmp%10 + '0';
 		//show the MAC of the source
 		output[2] = ID_Beacon_tmp/10 + '0';
 		output[3] = ID_Beacon_tmp%10 + '0';
-/*
+
 		print(output);
 
 		if(rssi<0){rssi = -rssi;ss[0] = '-';}
@@ -349,8 +353,8 @@ void MRFI_RxCompleteISR()
 		ss[3] = rssi%10 + '0';
 		print(ss);
 		print("\n\r");
-
 */
+
 	}else if(Packet.flag == FDATA){
 		if(Packet.payload.data.Next_hop[3] == etat.MAC){ 	//if next hop is him, relay and change the next hop
 			if(Packet.dst[3] == etat.MAC){			//if it is really for me

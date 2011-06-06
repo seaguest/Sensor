@@ -17,14 +17,8 @@
 *	transform the struct to the mrfiPacket for sending	 
 */
 void SendmPacket(mPacket *src ,mrfiPacket_t *dst){
-	//char output[10] = "";
-	//char ss[13] = "";
 	uint8_t i;
-	uint32_t tmp;
-	//uint32_t s1 = 255;
-	//uint32_t s2 = 255*255;
-	//uint32_t s3 = 255*255*255;
-
+	uint32_t voisin; 
 
 	dst->frame[0] = src->length;
 	for(i = 0;i <4;i++){
@@ -58,63 +52,11 @@ void SendmPacket(mPacket *src ,mrfiPacket_t *dst){
 	}else if(src->flag == FBEACON){
 		dst->frame[10] = src->payload.beacon.ID_Network;
 		dst->frame[11] = src->payload.beacon.ID_Slot;
-
-		tmp = (uint32_t ) src->payload.beacon.Voisin;
-		dst->frame[12] = (uint8_t) ( tmp/(255*255*255) );
-		dst->frame[13] = (uint8_t) ((tmp%(255*255*255))/(255*255));
-		dst->frame[14] = (uint8_t) ((tmp%(255*255))/255);
-		dst->frame[15] = (uint8_t) ( tmp%255 );
-
-/*
-		if(tmp >= s3){
-				print("fault 1 \n\r");
-			dst->frame[12] = (uint8_t) ( tmp/(255*255*255) );
-			dst->frame[13] = (uint8_t) ((tmp%(255*255*255))/(255*255));
-			dst->frame[14] = (uint8_t) ((tmp%(255*255))/255);
-			dst->frame[15] = (uint8_t) ( tmp%255 );
-		}else if(tmp >= s2){
-				print("fault 2 \n\r");
-			dst->frame[12] = 0;
-			dst->frame[13] = (uint8_t) ((tmp%(255*255*255))/(255*255));
-			dst->frame[14] = (uint8_t) ((tmp%(255*255))/255);
-			dst->frame[15] = (uint8_t) ( tmp%255 );
-
-		}else if(tmp >= s1){
-				print("great 3 \n\r");
-			dst->frame[12] = 0;
-			dst->frame[13] = 0;
-			dst->frame[14] = (uint8_t) ((tmp%(255*255))/255);
-			dst->frame[15] = (uint8_t) ( tmp%255 );
-		}else{
-				print("fault 4 \n\r");
-			dst->frame[12] = 0;
-			dst->frame[13] = 0;
-			dst->frame[14] = 0;
-			dst->frame[15] = (uint8_t) ( tmp%255 );
-		}		
- 
-		if(DEBUG){
-			print("split :\n\r");
-			ss[0] = dst->frame[12]/100 + '0' ;
-			ss[1] = dst->frame[12]%100/10 + '0' ;
-			ss[2] = dst->frame[12]%10 + '0' ;
-
-			ss[3] = dst->frame[13]/100 + '0' ;
-			ss[4] = dst->frame[13]%100/10 + '0' ;
-			ss[5] = dst->frame[13]%10 + '0' ;
-
-			ss[6] = dst->frame[14]/100 + '0' ;
-			ss[7] = dst->frame[14]%100/10 + '0' ;
-			ss[8] = dst->frame[14]%10 + '0' ;
-
-			ss[9] = dst->frame[15]/100 + '0' ;
-			ss[10] = dst->frame[15]%100/10 + '0' ;
-			ss[11] = dst->frame[15]%10 + '0' ;
-
-			print(ss);
-			print("\n\r");
-		}
-*/
+		voisin = src->payload.beacon.Voisin;
+		dst->frame[12] = (uint8_t)(voisin>>24);
+		dst->frame[13] = (uint8_t)(voisin>>16);
+		dst->frame[14] = (uint8_t)(voisin>>8);
+		dst->frame[15] = (uint8_t)(voisin);
 	}	
 }
 
@@ -148,6 +90,7 @@ void RecievemPacket(mrfiPacket_t *src ,mPacket *dst){
 		dst->payload.beacon.ID_Network = src->frame[10];
 		dst->payload.beacon.ID_Slot = src->frame[11];
 		dst->payload.beacon.Voisin = src->frame[12]*255*255*255 + src->frame[13]*255*255 +src->frame[14]*255 + src->frame[15];
+		dst->payload.beacon.Voisin = ((uint32_t )src->frame[12]<<24) + ((uint32_t )src->frame[13]<<16) + ((uint32_t )src->frame[14]<<8) + (uint32_t )src->frame[15] ; 
 	}	
 }
 
@@ -155,8 +98,6 @@ void RecievemPacket(mrfiPacket_t *src ,mPacket *dst){
 *	send beacon 
 */
 void Send_beacon(Status * s){				//send the packet of beacon
-	char output[4] = "";
-
 	mrfiPacket_t PacketToSend;
 	mPacket Packet;
 
@@ -180,19 +121,7 @@ void Send_beacon(Status * s){				//send the packet of beacon
 
 	//send the beacon
 //	MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_CCA);
-	MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);
-
-	output[0] = s->ID_Network/10 + '0';
-	output[1] = s->ID_Network%10 + '0';
-	if(s->HOST == IS_CREATER){
-		output[2] = '0';
-		output[3] = '0';
-	}else{
-		output[2] = s->MAC/10 + '0';
-		output[3] = s->MAC%10 + '0';
-	}
-
-//	print(output);		 
+	MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);	 
 }
 
 /*
@@ -274,8 +203,7 @@ void Send_message(Status * s, QList *Q, uint8_t  dst){	//send the message
 	mrfiPacket_t PacketToSend;
 	mPacket Packet;
 
-	uint8_t i ,c ;
-	char output[10] = "";		//for test
+	uint8_t i ;
 
 	if(!IsEmpty(Q)){
 		Packet.src[3] = s->MAC;
@@ -285,18 +213,13 @@ void Send_message(Status * s, QList *Q, uint8_t  dst){	//send the message
 		if(Length(Q)>=MRFI_MAX_FRAME_SIZE-14){
 			Packet.length = MRFI_MAX_FRAME_SIZE;
 			for(i = 0;i<MRFI_MAX_FRAME_SIZE-14;i++){
-				c = DeQueue(Q);
-				Packet.payload.data.data[i] = c ;
-				//output[i] = c ;
+				Packet.payload.data.data[i] = DeQueue(Q) ;
 			}
 		}else{
 			i = 0;
 			Packet.length = Length(Q) + 14;
 			while(!IsEmpty(Q)){
-				c = DeQueue(Q);
-				Packet.payload.data.data[i] = c ;
-				//output[i] = c ;
-				i++;
+				Packet.payload.data.data[i] = DeQueue(Q) ;
 			}
 		}
 

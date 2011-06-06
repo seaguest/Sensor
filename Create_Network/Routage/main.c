@@ -9,6 +9,7 @@
 #include "synchrone.h"
 #include "fifo.h" 
 #include "route.h" 
+#include "uart.h" 
 
 
 /*
@@ -31,7 +32,7 @@ void Init_config(void ){
 	P1OUT |= 0x02;
 
 	Button_Init();
-	Synchrone_Init(5);			//set MAC
+	Synchrone_Init(3);			//set MAC
 
 	InitQueue(&FIFO_Send);
 	InitQueue(&FIFO_Recieve);
@@ -48,6 +49,7 @@ interrupt(WDT_VECTOR) Timer_WDT(void){
 
 int main( void )
 {
+
 	Init_config();	
 
 	__bis_SR_register(LPM0_bits + GIE);       // Enter LPM0 w/ interrupt

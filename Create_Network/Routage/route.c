@@ -12,12 +12,8 @@
 /*
 *	calcule 2^i
 */
-uint32_t puissance(uint8_t i){				
-	uint32_t tmp= 1;
-	while(i--){
-		tmp *= 2;
-	}
-	return tmp;
+uint32_t puissance(uint8_t i){		
+	return (uint32_t )(1<<i);		
 }  
 
 /*
@@ -185,7 +181,6 @@ void Show_Online(Status *s){
 			on[1] = 0;
 		}
 	}
-	print("\n\rchoose one !\n\r");
 }
 
 /*
@@ -194,25 +189,25 @@ void Show_Online(Status *s){
 void Show_router(Status *s){
 	uint8_t i;
 	char ss[3]="";
-	print("\n\r router table is as follows: \n\r");
+	print("\n\r router table : \n\r");
 	for(i=0;i<32;i++){					 
 		if(s->Route_table[i].Dst[3]!=0){ 
 			print("Dst:");
 			ss[0] = (i+1)/10+'0';
 			ss[1] = (i+1)%10+'0';
 			print(ss);
-			print(" Next_hop:");
+			print(" Hop:");
 			ss[0] = s->Route_table[i].Next_hop[3]/10 +'0';
 			ss[1] = s->Route_table[i].Next_hop[3]%10 +'0';
 			print(ss);
-			print(" Metric:");
+			print(" M:");
 			ss[0] = s->Route_table[i].Metric/10 +'0';
 			ss[1] = s->Route_table[i].Metric%10 +'0';
 			print(ss);
 			print("\n\r");
 		}
 	}
-	print("That's all! \n\r");
+	print("Over! \n\r");
 }
 
 

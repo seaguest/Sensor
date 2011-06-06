@@ -59,7 +59,6 @@ interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
 	char rx = UCA0RXBUF;
 	char info[3] = "";
 	char cnt[6] = "";
-	char voisinage[11] = "";
 
 	uint16_t clock ,tmp = ( 3<<8 );
 
@@ -102,7 +101,6 @@ interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
 				print(info);
 				print("\n\r");
 
-/*
 				print("HOST       :");
 				if(etat.HOST == IS_CREATER){
 					print("IS_CREATER\n\r");
@@ -149,7 +147,6 @@ interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
 				cnt[5] = 0 ;
 				print(cnt);
 				print("\n\r");
-*/
 			}else if(rx == 27){		//help info
 				print("\n\r");
 				print("command: \n\r");
@@ -159,7 +156,7 @@ interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
 				print("ESC: help \n\r");
 			}else{
 				print("\n\r");
-				print("please enter s or r or ESC\n\r");
+				print("only s or r or ESC\n\r");
 			}					
 			break;
 		case 1:
@@ -175,10 +172,9 @@ interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
 						etat.Dst = 0;
 					}else{
 						UART_MODE = 2;
-						print("you choose \n\r");
 						print(dest);
-						print("\n\r");
-						print("OK ,you can start talking... \n\r");
+						print(" choosen \n\r");
+						print("OK ,start talking... \n\r");
 					}		
 				}
 			}else{
