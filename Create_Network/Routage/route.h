@@ -27,5 +27,9 @@ void Show_Online(Status *s);
 void Show_router(Status *s);
 uint8_t Find_index(uint8_t id ,mPacket *m);
 void Update_rip(Status *s ,mPacket *m);
+uint32_t puissance(uint8_t i);
+void Show_voisin(Status *s);
+void Tidy_table(Status *s);
+void Set_filteredtable(Status *s);
 
 #endif

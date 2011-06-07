@@ -27,7 +27,7 @@ void Init_config(void ){
 	P1OUT |= 0x02;
 
 	Button_Init();
-	Synchrone_Init(6);			//set MAC
+	Synchrone_Init(18);			//set MAC
 
 	InitQueue(&FIFO_Send);
 	InitQueue(&FIFO_Recieve);

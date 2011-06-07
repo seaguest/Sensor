@@ -70,13 +70,16 @@ int Length(QList *Q)
 */
 int Search(QList *Q ,QElemtype e)
 {
-	QLink p = Q->front;
-	while(p != Q->rear){
-		if(p->next->data == e){
-			return 1;
-		}else{
-			p = p->next;	
+	if(!IsEmpty){
+		QLink p = Q->front;
+		while(p != Q->rear){
+			if(p->next->data == e){
+				return 1;
+			}else{
+				p = p->next;	
+			}
 		}
+		return 0;
 	}
 	return 0;
 }

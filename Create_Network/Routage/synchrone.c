@@ -19,45 +19,6 @@
 Status etat;					//record all the status
 extern uint8_t UART_MODE;
 uint8_t RIP_Prepared = 0;
-uint8_t permission = 0;
-
-
-void mutex(uint8_t *u ,uint8_t v ){
-	while(permission){}
-	permission = 1;
-	*u = v;
-	permission = 0;
-}
-
-/*
-*	for the changing the value of etat.synchrone ,we should use semaphore to avoid collisions
-*	we take the person algorithme
-*/
-//flag[2] is boolean; and turn is an integer
-uint8_t flag[2]  = {0, 0};
-uint8_t turn;
-
-/*
-*	Set_Synchrone  , in the ISR of RF
-*/
-void Set_Synchrone(void ){
-	flag[0] = 1;
-	turn = 1;
-	while (flag[1] == 1 && turn == 1){}	//wait if the varible is busy 
-	etat.synchrone = 1;			//section critique
-	flag[0] = 0;
-}
-
-/*
-*	clear_Synchrone , in the ISR of Timer
-*/
-void Clear_Synchrone(void ){
-	flag[1] = 1;
-	turn = 0;
-	while (flag[0] == 1 && turn == 0){}	//wait if the varible is busy 
- 	etat.synchrone = 0;			//section critique
-	flag[1] = 0;
-}
 
 /*
 *	when find the network is down then after certain time then create another
@@ -72,6 +33,8 @@ void Delay_Rand(uint32_t mod){			//wait for 0 ~ 100 ms
 *	initialisation for synchronisation
 */
 void Synchrone_Init(uint8_t mac){
+	uint8_t i;
+
 	etat.state = WAIT_SCAN;			//first time ;initialisation
 	etat.ID_Network = NO_NETWORK;		//no network at first
 	etat.MAC = mac;
@@ -83,8 +46,13 @@ void Synchrone_Init(uint8_t mac){
 	etat.Counter = 0;
 	etat.Surveille_Cnt = 0; 			 
 	etat.Surveille_Cnt_Old = 0;
-	Init_voisin(&etat);			
+
+	Init_voisin(&etat);
 	Init_route_table(&etat);		//reset the table of route
+
+	for(i = 0; i<N_SLOT-2; i++){
+		etat.check_old[i] = etat.check[i] = 0;
+	}
 }
 
 
@@ -95,7 +63,21 @@ void Synchrone_Init(uint8_t mac){
 void Timer_Surveille(void);
 interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
 {
+	uint8_t i, j;
 	RIP_Prepared = 1;			//signal for rip, after this it has the right to send rip
+
+	for(i = 0; i<N_SLOT-2; i++){
+		if(Is_voisin(&etat, i+1) && i != (etat.MAC-1)){		
+			if(etat.check[i] != etat.check_old[i]){		//if always recieve beacon of voisin 	 
+				etat.check_old[i] = etat.check[i];
+			}else{					//if not ,i +1 disappered
+				etat.check_old[i] = etat.check[i] = 0;
+				Delete_voisin(&etat, i+1);
+				Delete_router(&etat, i+1);
+			}
+		}
+	}
+
 	if(etat.HOST == IS_NOT_CREATER){	//if not the HOST
 		if(etat.Surveille_Cnt != etat.Surveille_Cnt_Old){//if the network is OK , contuinue	 
 			etat.Surveille_Cnt_Old = etat.Surveille_Cnt;
@@ -104,11 +86,18 @@ interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
 	 		etat.ID_Network = etat.MAC;
 	  		etat.HOST = IS_CREATER;
 		 	etat.synchrone = 1;			//section critique
-
 			etat.ID_Beacon = 0;
+			etat.Surveille_Cnt = etat.Surveille_Cnt_Old = 0;
 			etat.state = WAIT_SYNCHRONE;
 			timer_synchrone(&etat);
 			Send_beacon(&etat);
+			Init_voisin(&etat);	
+			Init_route_table(&etat);		//reset the table of route
+
+			for(j = 0; j<N_SLOT-2; j++){
+				etat.check_old[j] = etat.check[j] = 0;
+			}
+
 			P1OUT |= 0x02;   			//jaune led
 		}
 	} 
@@ -122,6 +111,7 @@ interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
 void Timer_B0(void);
 interrupt(TIMERB0_VECTOR) Timer_B0(void)
 {
+	uint8_t *a = 9;
 	etat.Counter--;
 	if(etat.Counter == 0){
 		Stop_Timer();
@@ -158,6 +148,7 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 					Send_message(&etat, &FIFO_Send ,etat.Dst);
 					Recieve_message(&etat, &FIFO_Recieve);
 					if(RIP_Prepared == 1){		//every 3s ,send the rip
+						Tidy_table(&etat);		// clear the dirt data
 						Send_rip(&etat);
 						RIP_Prepared = 0;
 					}
@@ -234,51 +225,35 @@ void MRFI_RxCompleteISR()
 	mrfiPacket_t PacketRecieved;
 	mPacket Packet;
 	char rssi ;
-	char dest[3] = "";
-	char ss[5] = "";
 
 	uint8_t ID_Network_tmp, ID_Beacon_tmp ,src ,i ,data;
 	uint32_t voisin_voisin;					//the voisin of voisin
-
-	char output[MRFI_MAX_FRAME_SIZE-10]="";
-	etat.Surveille_Cnt = ( etat.Surveille_Cnt + 1 )%65535;
 
 	MRFI_Receive(&PacketRecieved);
 	RecievemPacket(&PacketRecieved ,&Packet);
 
 	if(Packet.flag == FBEACON){	
+		etat.Surveille_Cnt = ( etat.Surveille_Cnt + 1 )%65535;
+
 		ID_Network_tmp = Packet.payload.beacon.ID_Network;
 		ID_Beacon_tmp  = Packet.payload.beacon.ID_Slot;
 		src  = Packet.src[3];
 		voisin_voisin = Packet.payload.beacon.Voisin;
 		rssi = PacketRecieved.rxMetrics[0]; 
-		if(rssi>-72){			//seuil avec pwr(0) ,distance 20cm
-			Add_router(&etat , src, voisin_voisin);	//every time it recieve the beacon , update the route table
-		}else{
-			if(Is_voisin(&etat,src)){
-				Delete_voisin(&etat, src);
-				Delete_router(&etat , src);
-			}
+		if(rssi > -88){			//seuil avec pwr(0) ,distance 20cm
+			etat.check[src-1] = (etat.check[src-1] + 1)%65535;	//make sure if the voisin is there
+			Add_router(&etat , src, voisin_voisin);		//every time it recieve the beacon , update the route table
 		}
-
+/*
+		print_8b(ID_Network_tmp);
+		print_8b(ID_Beacon_tmp);
+		print(" ");
+		print_8b(-rssi);
+		print("\n\r");
+*/
 		if(rssi < -84 && etat.ID_Beacon == ID_Beacon_tmp && etat.ID_Beacon !=0 && etat.HOST == IS_NOT_CREATER){ //if the beacon source go far , choose another
 			Stop_Timer();
 		}else{
-
-			//show the ID_NETWORK
-			output[0] = ID_Network_tmp/10 + '0';
-			output[1] = ID_Network_tmp%10 + '0';
-			//show the MAC of the source
-			output[2] = ID_Beacon_tmp/10 + '0';
-			output[3] = ID_Beacon_tmp%10 + '0';
-			print(output);
-			if(rssi<0){rssi = -rssi;ss[0] = '-';}
-			ss[1] = rssi/100 + '0';
-			ss[2] = rssi%100/10 + '0';
-			ss[3] = rssi%10 + '0';
-			print(ss);
-			print("\n\r");
-
 			if(etat.synchrone == 0 && etat.HOST == IS_NOT_CREATER){	
 				Stop_Timer();
 				etat.ID_Network = ID_Network_tmp;		 
@@ -324,9 +299,7 @@ void MRFI_RxCompleteISR()
 				if(UART_MODE!=2){			//change mode to type if recieve a paquet
 					UART_MODE = 2;
 					print("\n\r Recieved message from ");
-					dest[0] = etat.Dst/10 + '0';
-					dest[1] = etat.Dst%10 + '0';
-					print(dest);
+					print_8b(etat.Dst);
 					print("\n\r");
 				}
 				for (i=0;i<Packet.length-14;i++) {

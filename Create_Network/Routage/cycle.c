@@ -55,8 +55,8 @@ void SendmPacket(mPacket *src ,mrfiPacket_t *dst){
 		dst->frame[10] = src->payload.beacon.ID_Network;
 		dst->frame[11] = src->payload.beacon.ID_Slot;
 		voisin = src->payload.beacon.Voisin;
-		dst->frame[12] = (uint8_t)(voisin>>24);
-		dst->frame[13] = (uint8_t)(voisin>>16);
+		dst->frame[12] = (uint8_t)(voisin/16777216);
+		dst->frame[13] = (uint8_t)(voisin%16777216/65536);
 		dst->frame[14] = (uint8_t)(voisin>>8);
 		dst->frame[15] = (uint8_t)(voisin);
 	}	
@@ -91,8 +91,7 @@ void RecievemPacket(mrfiPacket_t *src ,mPacket *dst){
 	}else if(dst->flag == FBEACON){
 		dst->payload.beacon.ID_Network = src->frame[10];
 		dst->payload.beacon.ID_Slot = src->frame[11];
-		dst->payload.beacon.Voisin = src->frame[12]*255*255*255 + src->frame[13]*255*255 +src->frame[14]*255 + src->frame[15];
-		dst->payload.beacon.Voisin = ((uint32_t )src->frame[12]<<24) + ((uint32_t )src->frame[13]<<16) + ((uint32_t )src->frame[14]<<8) + (uint32_t )src->frame[15] ; 
+		dst->payload.beacon.Voisin = ((uint32_t )src->frame[12]*16777216) + ((uint32_t )src->frame[13]*65536) + ((uint32_t )src->frame[14]*256) + (uint32_t )src->frame[15] ; 
 	}	
 }
 
@@ -206,25 +205,13 @@ void Send_message(Status * s, QList *Q, uint8_t  dst){	//send the message
 	mPacket Packet;
 
 	uint8_t i ;
+	uint8_t c ;
 
 	if(!IsEmpty(Q)){
+		//fill in the header
 		Packet.src[3] = s->MAC;
 		Packet.dst[3] = dst;
 		Packet.flag = FDATA; 
-	
-		if(Length(Q)>=MRFI_MAX_FRAME_SIZE-14){
-			Packet.length = MRFI_MAX_FRAME_SIZE;
-			for(i = 0;i<MRFI_MAX_FRAME_SIZE-14;i++){
-				Packet.payload.data.data[i] = DeQueue(Q) ;
-			}
-		}else{
-			i = 0;
-			Packet.length = Length(Q) + 14;
-			while(!IsEmpty(Q)){
-				Packet.payload.data.data[i] = DeQueue(Q) ;
-			}
-		}
-
 		//find the next hop
 		if(Is_voisin(s,dst)){
 			Packet.payload.data.Next_hop[3] = dst;
@@ -232,11 +219,30 @@ void Send_message(Status * s, QList *Q, uint8_t  dst){	//send the message
 			Packet.payload.data.Next_hop[3] = Find_next_hop(s , dst);
 		}
 
-		SendmPacket(&Packet, &PacketToSend);
-
-		//send the message
-		//MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_CCA);
-		MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);
+		//if there is enough char
+		if(Length(Q)>=MRFI_MAX_FRAME_SIZE-14){
+			Packet.length = MRFI_MAX_FRAME_SIZE;
+			for(i = 0;i<MRFI_MAX_FRAME_SIZE-14;i++){
+				Packet.payload.data.data[i] = DeQueue(Q) ;
+			}
+			SendmPacket(&Packet, &PacketToSend);
+			//MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_CCA);
+			MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);
+		}else{		//if there is sentence
+			while(Search(Q, '\r')){	
+				i = 0;
+				Packet.length = Length(Q) + 14;
+				while((c = DeQueue(Q))!='\r'){
+					Packet.payload.data.data[i] = c ;
+					i++;
+				}
+				Packet.payload.data.data[i] = '\r' ;
+				SendmPacket(&Packet, &PacketToSend);
+				//send the message
+				//MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_CCA);
+				MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);
+			}
+		}
 	}
 }
 

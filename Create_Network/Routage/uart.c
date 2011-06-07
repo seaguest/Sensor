@@ -24,6 +24,61 @@ void print(char *s){
 }
 
 /*
+*	print a number uint8_t
+*/
+void print_8b(uint8_t u ){
+	char o[5] = "";
+	if(u < 100){
+		o[0] = u/10 + '0' ;
+		o[1] = u%10 + '0' ;
+		o[2] = 0 ;
+	}else{
+		o[0] = u/100 + '0' ;
+		o[1] = u%100/10 + '0' ;
+		o[2] = u%10 + '0' ;
+		o[3] = 0 ;
+	}
+	print(o);
+}
+
+/*
+*	print a number uint16_t
+*/
+void print_16b(uint16_t u ){
+	char o[6] = "";
+	o[0] = u/10000 + '0' ;
+	o[1] = u%10000/1000 + '0' ;
+	o[2] = u%1000/100 + '0' ;
+	o[3] = u%100/10 + '0' ;
+	o[4] = u%10 + '0' ;
+	o[5] = 0 ;
+	print(o);
+	print("\n\r");
+}
+
+
+/*
+*	print a number uint32_t
+*/
+void print_32b(uint32_t u ){
+	char o[11] = "";
+	o[0] = u/1000000000 + '0' ;
+	o[1] = u%1000000000/100000000 + '0' ;
+	o[2] = u%100000000/10000000 + '0' ;
+	o[3] = u%10000000/1000000 + '0' ;
+	o[4] = u%1000000/100000 + '0' ;
+	o[5] = u%100000/10000 + '0' ;
+	o[6] = u%10000/1000 + '0' ;
+	o[7] = u%1000/100 + '0' ;
+	o[8] = u%100/10 + '0' ;
+	o[9] = u%10 + '0' ;
+	o[10] = 0 ;
+	print(o);
+	print("\n\r");
+}
+
+
+/*
 *	initialisation of uart
 */
 void Uart_Init(void){
@@ -59,6 +114,7 @@ interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
 	char rx = UCA0RXBUF;
 	char info[3] = "";
 	char cnt[6] = "";
+	char voisinage[11];
 
 	uint16_t clock ,tmp = ( 3<<8 );
 
@@ -81,6 +137,7 @@ interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
 				UART_MODE = 1;
 			}else if(rx == 'r'){		//show router table
 				print("\n\r");
+				Tidy_table(&etat);		// clear the dirt data
 				Show_router(&etat);
 			}else if(rx == 'i'){		//print information
 				print("\n\r");
@@ -148,6 +205,22 @@ interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
 				cnt[5] = 0 ;
 				print(cnt);
 				print("\n\r");
+
+				print("Voisin     :");
+				voisinage[0] = etat.Voisin/1000000000 + '0' ;
+				voisinage[1] = etat.Voisin%1000000000/100000000 + '0' ;
+				voisinage[2] = etat.Voisin%100000000/10000000 + '0' ;
+				voisinage[3] = etat.Voisin%10000000/1000000 + '0' ;
+				voisinage[4] = etat.Voisin%1000000/100000 + '0' ;
+				voisinage[5] = etat.Voisin%100000/10000 + '0' ;
+				voisinage[6] = etat.Voisin%10000/1000 + '0' ;
+				voisinage[7] = etat.Voisin%1000/100 + '0' ;
+				voisinage[8] = etat.Voisin%100/10 + '0' ;
+				voisinage[9] = etat.Voisin%10 + '0' ;
+				voisinage[10] = 0 ;
+				print(voisinage);
+				print("\n\r");
+
 			}else if(rx == 27){		//help info
 				print("\n\r");
 				print("command: \n\r");

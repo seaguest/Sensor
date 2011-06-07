@@ -100,11 +100,16 @@ typedef struct
 	uint8_t HOST;
 	uint8_t ID_Beacon;			 
 	uint8_t Dst;
-	uint16_t Counter; 			 
-	uint16_t Surveille_Cnt; 			 
-	uint16_t Surveille_Cnt_Old; 	
+	uint16_t Counter; 			 	
 	uint32_t Voisin;	
+	//to check if the voisin is down or gone
+	uint16_t check[N_SLOT-2];
+	uint16_t check_old[N_SLOT-2];
+	//to check if the network is down or not
+	uint16_t Surveille_Cnt; 			 
+	uint16_t Surveille_Cnt_Old; 
 	mRip Route_table[N_SLOT];	 
+	uint8_t AddrFiltered[N_SLOT];
 } Status;
 
 #endif
