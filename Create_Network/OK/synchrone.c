@@ -1,3 +1,18 @@
+
+/***************************************************************************************
+Copyright (C), 2011-2012, ENSIMAG.TELECOM 
+File name	: synchrone.c
+Author		: HUANG yongkan & KANJ mahamad
+Version		:
+Date		: 2011-6-6
+Description	: the synchronisation is updated when sensor gets a packet of beacon
+		  the synchronisation is redone every duty cycle
+		  when it gets a packet ,check the flag then deals with it 
+Function List	:  
+		  void Delay_Rand(uint32_t mod);		// when find the network is down then after certain time then create another
+		  void Synchrone_Init(uint8_t mac);		// initialisation for synchronisation
+***************************************************************************************/
+
 #include "common.h"
 #include <mrfi.h> 
 #include <string.h> 
@@ -9,30 +24,43 @@
 #include "synchrone.h"
 #include "route.h"
 
-/*
-*	the synchronisation is updated when sensor gets a packet of beacon
-*	the synchronisation is redone every duty cycle
-*	when it gets a packet ,check the flaf then deals with it 
-*/
-
-
- Status etat;					//record all the status
+//define the variable global
+volatile Status etat;				//record all the status
 extern uint8_t UART_MODE;
 volatile uint8_t RIP_Prepared = 0;
 
-/*
-*	when find the network is down then after certain time then create another
-*/
-void Delay_Rand(uint32_t mod){			//wait for 0 ~ 100 ms
+
+/***************************************************************************************
+Function	: void Delay_Rand(uint32_t mod)
+Description	: when find the network is down then after certain time then create another
+Calls		:  
+Called By	: interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
+Input		: void
+Output		: 
+Return		: void 
+Others		: 
+***************************************************************************************/
+
+void Delay_Rand(uint32_t mod)
+{					//wait for 0 ~ 100 ms
 	volatile uint32_t x;
 	x = rand()%mod;
 	while(x--);
 }
 
-/*
-*	initialisation for synchronisation
-*/
-void Synchrone_Init(uint8_t mac){
+/***************************************************************************************
+Function	: void Synchrone_Init(uint8_t mac)
+Description	: initialisation for synchronisation
+Calls		:  
+Called By	: void Init_config(void )
+Input		: void
+Output		: 
+Return		: void 
+Others		: 
+***************************************************************************************/
+
+void Synchrone_Init(uint8_t mac)
+{
 	uint8_t i;
 
 	etat.state = WAIT_SCAN;			//first time ;initialisation
@@ -59,11 +87,18 @@ void Synchrone_Init(uint8_t mac){
 }
 
 
-/*
-*	interruption of button
-*	initialisation for scanning ,uart , cc2500 and timers  
+/***************************************************************************************
+Function	: interrupt(PORT1_VECTOR) Buttopn(void)
+Description	: interruption of button
+		  initialisation for scanning ,uart , cc2500 and timers  
+Calls		: many
+Called By	:  
+Input		: void
+Output		: 
+Return		: void 
+Others		: 
+***************************************************************************************/
 
-*/
 void Buttopn(void);
 interrupt(PORT1_VECTOR) Buttopn(void)
 {
@@ -92,10 +127,19 @@ interrupt(PORT1_VECTOR) Buttopn(void)
 	print("ESC: help \n\r");
 }
 
-/*
-*	interruption of timer A 
-*	maintenance of network and update router table
-*/
+
+/***************************************************************************************
+Function	: interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
+Description	: interruption of timer A 
+		  maintenance of network and update router table 
+Calls		: many
+Called By	:  
+Input		: void
+Output		: 
+Return		: void 
+Others		: 
+***************************************************************************************/
+
 void Timer_Surveille(void);
 interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
 {
@@ -140,17 +184,25 @@ interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
 	} 
 }
 
-/*
-*	interruption of timer B
-*	synchronisation and every part of duty cycle
-*	a automate for the duty cycle 
-*/
+/***************************************************************************************
+Function	: interrupt(TIMERB0_VECTOR) Timer_B0(void)
+Description	: interruption of timer B 
+		  synchronisation and every part of duty cycle
+		  a automate for the duty cycle 
+Calls		: many 
+Called By	:  
+Input		: void
+Output		: 
+Return		: void 
+Others		: 
+***************************************************************************************/
+
 void Timer_B0(void);
 interrupt(TIMERB0_VECTOR) Timer_B0(void)
 {
 	etat.Counter--;
 	if(etat.Counter == 0){
-		Start_Timer_Surveille();		//the timer A0 is closed sometime, very strange	
+		Start_Timer_Surveille();		//the timer A0 is closed when we use CCA, we must check it and start it
 		Stop_Timer();
 		if(etat.state == WAIT_SCAN && etat.ID_Network == NO_NETWORK){
 	 		etat.ID_Network = etat.MAC;
@@ -224,10 +276,18 @@ interrupt(TIMERB0_VECTOR) Timer_B0(void)
 }
 
 
-/*
-*	interruption of recieving packet
-*	trait the packet with the flag
-*/
+/***************************************************************************************
+Function	: void MRFI_RxCompleteISR()
+Description	: interruption of recieving packet
+		  deal with the packet with the flag
+Calls		: many 
+Called By	:  
+Input		: void
+Output		: 
+Return		: void 
+Others		: 
+***************************************************************************************/
+
 void MRFI_RxCompleteISR()
 {
 	mrfiPacket_t PacketRecieved;
@@ -248,7 +308,7 @@ void MRFI_RxCompleteISR()
 		src  = Packet.src;
 		voisin_voisin = Packet.payload.beacon.Voisin;
 		rssi = PacketRecieved.rxMetrics[0]; 
-		if(rssi > -68){			//seuil avec pwr(0) ,distance 20cm
+		if(rssi > -84){			//seuil avec pwr(0) ,distance 70cm
 			etat.check[src-1] = (etat.check[src-1] + 1)%65535;	//make sure if the voisin is there
 			Add_router(&etat , src, voisin_voisin);		//every time it recieve the beacon , update the route table
 		}

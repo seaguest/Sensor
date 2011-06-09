@@ -1,3 +1,22 @@
+
+/***************************************************************************************
+Copyright (C), 2011-2012, ENSIMAG.TELECOM 
+File name	: cycle.c
+Author		: HUANG yongkan & KANJ mahamad
+Version		:
+Date		: 2011-6-6
+Description	: this file records the activites during one duty cycle
+		  contains the functions of sending message , sending beacon ,sending rip
+Function List	:  
+	void SendmPacket(mPacket *src ,mrfiPacket_t *dst);	// transform the struct to the mrfiPacket for sending 
+	void RecievemPacket(mrfiPacket_t *src ,mPacket *dst);	 //transform the mrfiPacket to the struct for recieving
+	void Send_beacon(volatile Status * s);			 //send beacon
+	void Send_rip(volatile Status * s);			 //send rip	
+	void Send_message(volatile Status * s, volatile QList *Q, uint8_t  Destination);  //write the message to the FIFO_Send with the adr 
+	void Recieve_message(volatile Status * s, volatile QList *Q);	//read the message in FIFO_Recieve
+	void Sleep(void);					 // sleep
+***************************************************************************************/
+
 #include "common.h"
 #include "uart.h"
 #include "interrupt.h"
@@ -9,15 +28,21 @@
 #include <mrfi.h> 
 
 
-/*
-*	this file records the activites during one duty cycle
-*	contains the functions of sending message , sending beacon ,sending rip
-*/
+/***************************************************************************************
+Function	: void SendmPacket(mPacket *src ,mrfiPacket_t *dst)
+Description	: transform the struct to the mrfiPacket for sending
+Calls		:  
+Called By	: void Send_beacon(volatile Status * s) 
+		  void Send_rip(volatile Status * s)
+		  void Send_message(volatile Status * s, volatile QList *Q, uint8_t  dst)
+Input		: mPacket *src 
+Output		: mrfiPacket_t *dst
+Return		: void
+Others		: 
+***************************************************************************************/
 
-/*
-*	transform the struct to the mrfiPacket for sending	 
-*/
-void SendmPacket(mPacket *src ,mrfiPacket_t *dst){
+void SendmPacket(mPacket *src ,mrfiPacket_t *dst)
+{
 	uint8_t i;
 	uint32_t voisin; 
 
@@ -49,10 +74,19 @@ void SendmPacket(mPacket *src ,mrfiPacket_t *dst){
 	}	
 }
 
-/*
-*	transform the mrfiPacket to the struct for recieving
-*/
-void RecievemPacket(mrfiPacket_t *src ,mPacket *dst){
+/***************************************************************************************
+Function	: void RecievemPacket(mrfiPacket_t *src ,mPacket *dst)
+Description	: transform the mrfiPacket to the struct for recieving
+Calls		:  
+Called By	: void MRFI_RxCompleteISR()
+Input		: mrfiPacket_t *src
+Output		: mPacket *dst
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void RecievemPacket(mrfiPacket_t *src ,mPacket *dst)
+{
 	uint8_t i;
 	dst->length = src->frame[0];
 	dst->src = src->frame[4];
@@ -76,10 +110,20 @@ void RecievemPacket(mrfiPacket_t *src ,mPacket *dst){
 	}	
 }
 
-/*
-*	send beacon 
-*/
-void Send_beacon(volatile Status * s){				//send the packet of beacon
+/***************************************************************************************
+Function	: void Send_beacon(volatile Status * s); 
+Description	: send beacon 
+Calls		: SendmPacket(&Packet, &PacketToSend); 			
+	          MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_CCA);
+Called By	: interrupt(TIMERB0_VECTOR) Timer_B0(void)	
+Input		: volatile Status * s
+Output		: send beacon packet
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Send_beacon(volatile Status * s)
+{
 	mrfiPacket_t PacketToSend;
 	mPacket Packet;
 
@@ -105,10 +149,22 @@ void Send_beacon(volatile Status * s){				//send the packet of beacon
 	MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_FORCED);	 
 }
 
-/*
-*	send rip 
-*/
-void Send_rip(volatile Status * s){			
+
+
+/***************************************************************************************
+Function	: void Send_rip(volatile Status * s)
+Description	: send rip 
+Calls		: SendmPacket(&Packet, &PacketToSend); 			
+	          MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_CCA);
+Called By	: interrupt(TIMERB0_VECTOR) Timer_B0(void)		
+Input		: volatile Status * s
+Output		: packet of RIP is send
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Send_rip(volatile Status * s)
+{			
 	uint8_t i, cnt=0;
 	mrfiPacket_t PacketToSend;
 	mPacket Packet;
@@ -137,10 +193,19 @@ void Send_rip(volatile Status * s){
 	}
 }
 
-/*
-*	read the message in the FIFO_Recieve and find if there is '\r' , if yes then print 
-*/
-void Recieve_message(volatile Status * s, volatile QList *p){	//Recieve the message
+/***************************************************************************************
+Function	: void Recieve_message(volatile Status * s, volatile QList *p)
+Description	: read the message in the FIFO_Recieve and find if there is '\r' , if yes then print 
+Calls		:  
+Called By	: interrupt(TIMERB0_VECTOR) Timer_B0(void)	
+Input		: volatile Status * s, volatile QList *p
+Output		: print the messagein FIFO_Recieve if it has '\r'
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Recieve_message(volatile Status * s, volatile QList *p)
+{	
 	char output[30]="";
 	uint8_t i ,k;
 	char c;
@@ -166,11 +231,20 @@ void Recieve_message(volatile Status * s, volatile QList *p){	//Recieve the mess
 	}
 }
 
-/*
-*	write the message to the FIFO_Send with the adr 
-*/
-void Send_message(volatile Status * s, volatile QList *Q, uint8_t  dst){	//send the message
+/***************************************************************************************
+Function	: void Send_message(volatile Status * s, volatile QList *Q, uint8_t  dst)
+Description	: write the message to the FIFO_Send with the adr  
+Calls		: SendmPacket(&Packet, &PacketToSend); 			
+	          MRFI_Transmit(&PacketToSend, MRFI_TX_TYPE_CCA);
+Called By	: interrupt(TIMERB0_VECTOR) Timer_B0(void)	
+Input		: volatile Status * s, volatile QList *Q, uint8_t  dst
+Output		: message in FIFO_Send is send
+Return		: void
+Others		: 
+***************************************************************************************/
 
+void Send_message(volatile Status * s, volatile QList *Q, uint8_t  dst)
+{	 
 	mrfiPacket_t PacketToSend;
 	mPacket Packet;
 
@@ -220,9 +294,18 @@ void Send_message(volatile Status * s, volatile QList *Q, uint8_t  dst){	//send 
 	}
 }
 
-/*
-*	sleeo , jump the mode LPM3
-*/
-void Sleep(void ){
-	;//__bis_SR_register(LPM3_bits + GIE);       // Enter LPM0 w/ interrupt
+/***************************************************************************************
+Function	: void Sleep(void )
+Description	: sleeo , jump the mode LPM3
+Calls		:  
+Called By	: interrupt(TIMERB0_VECTOR) Timer_B0(void)	
+Input		: void
+Output		: void
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Sleep(void )
+{
+	;//__bis_SR_register(LPM3_bits + GIE);       // Enter LPM0 with interrupt
 }

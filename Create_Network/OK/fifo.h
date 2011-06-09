@@ -15,12 +15,12 @@ typedef struct{
 } QList;
 
 void InitQueue(volatile QList *Q);
-uint8_t EnQueue(volatile QList *Q,QElemtype e);
-QElemtype DeQueue(volatile QList *Q);
 uint8_t IsEmpty(volatile QList *Q);
 uint8_t IsFull(volatile QList *Q);
 uint8_t Length(volatile QList *Q);
 uint8_t Search(volatile QList *Q ,QElemtype e);
+uint8_t EnQueue(volatile QList *Q,QElemtype e);
+QElemtype DeQueue(volatile QList *Q);
 
 //void print_fifo(volatile QList *Q);
 

@@ -50,7 +50,7 @@
 // en ms
 #define DUREE_SCAN (2*DUREE_CYCLE)	//1000
 // en ms
-#define DUREE_ACTIVE 300
+#define DUREE_ACTIVE 350
 // en ms
 #define DUREE_SLEEP (DUREE_CYCLE -DUREE_SLOT*(N_SLOT+1) - DUREE_ACTIVE)
 // en ms
@@ -64,8 +64,6 @@ typedef struct
 } mBeacon;
 
 typedef struct {
-	//uint16_t SEQ;
-	//uint16_t ACK; 
 	uint8_t Next_hop;
 	uint8_t data[MRFI_MAX_FRAME_SIZE-11];
 } mData;

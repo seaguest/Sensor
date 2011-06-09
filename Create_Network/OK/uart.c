@@ -1,3 +1,21 @@
+
+/***************************************************************************************
+Copyright (C), 2011-2012, ENSIMAG.TELECOM 
+File name	: uart.c
+Author		: HUANG yongkan & KANJ mahamad
+Version		:
+Date		: 2011-6-6
+Description	: we use uart as a interface of iteraction with machine
+		  uart recieve what we type and deals with the commands
+Function List	:  
+		  void Uart_Init(void );				// initialisation de uart
+		  void TXString(char* string, int length);		// send message in uart
+		  void print(char *s);					// print a string
+		  void print_8b(uint8_t u );				// print a number uint8_t
+		  void print_16b(uint16_t u );				// print a number uint16_t
+		  void print_32b(uint32_t u );				// print a number uint32_t
+***************************************************************************************/
+
 #include "common.h"
 #include "uart.h"
 #include <mrfi.h> 
@@ -6,37 +24,59 @@
 #include "string.h" 
 #include "synchrone.h" 
 
-
-/*
-*	we use the uart to communicate with the MCU
-*	setting of the uart and iteraction with the command 
-*/
-
-extern Status etat;
+//define the variable global and variable from other files
+extern Status etat;	
 volatile uint8_t UART_MODE = 0 , time = 0;
 char dest[2]="";
 
-/*
-*	find out which clock is used
-*/
-uint8_t Clock(void ){
+
+/***************************************************************************************
+Function	: uint8_t Clock(void )
+Description	: find out which clock is used
+Calls		:  
+Called By	: interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
+Input		: void
+Output		: 
+Return		: return the value of TBCTL
+Others		: 
+***************************************************************************************/
+
+uint8_t Clock(void )
+{
 	uint16_t c, tmp = (3<<8);
 	c = (TBCTL & tmp)>>8 ;
 	return c;
 }
  
+/***************************************************************************************
+Function	: void print(char *s)
+Description	: print a string in the minicom 
+Calls		:  
+Called By	: interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
+Input		: char *s
+Output		: print the string
+Return		: void
+Others		: 
+***************************************************************************************/
 
-/*
-*	print a string in the minicom 
-*/
-void print(char *s){
+void print(char *s)
+{
 	TXString(s, strlen(s));
 }
 
-/*
-*	print a number uint8_t
-*/
-void print_8b(uint8_t u ){
+/***************************************************************************************
+Function	: void print_8b(uint8_t u)
+Description	: print a number uint8_t
+Calls		:  
+Called By	: interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
+Input		: uint8_t u
+Output		: print the uint8_t
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void print_8b(uint8_t u)
+{
 	char o[4] = "";
 	if(u < 100){
 		o[0] = u/10 + '0' ;
@@ -52,10 +92,20 @@ void print_8b(uint8_t u ){
 	}
 }
 
-/*
-*	print a number uint16_t
-*/
-void print_16b(uint16_t u ){
+
+/***************************************************************************************
+Function	: void print_16b(uint16_t u)
+Description	: print a number uint16_t
+Calls		:  
+Called By	: interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
+Input		: uint16_t u
+Output		: print the uint16_t
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void print_16b(uint16_t u )
+{
 	char o[6] = "";
 	o[0] = u/10000 + '0' ;
 	o[1] = u%10000/1000 + '0' ;
@@ -68,10 +118,19 @@ void print_16b(uint16_t u ){
 }
 
 
-/*
-*	print a number uint32_t
-*/
-void print_32b(uint32_t u ){
+/***************************************************************************************
+Function	: void print_32b(uint32_t u)
+Description	: print a number uint32_t
+Calls		:  
+Called By	: interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
+Input		: uint32_t u
+Output		: print the uint32_t
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void print_32b(uint32_t u )
+{
 	char o[11] = "";
 	o[0] = u/1000000000 + '0' ;
 	o[1] = u%1000000000/100000000 + '0' ;
@@ -89,10 +148,19 @@ void print_32b(uint32_t u ){
 }
 
 
-/*
-*	initialisation of uart
-*/
-void Uart_Init(void){
+/***************************************************************************************
+Function	: void Uart_Init(void)
+Description	: initialisation of uart
+Calls		:  
+Called By	: interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
+Input		: void
+Output		: set the uart
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Uart_Init(void)
+{
 	P3SEL    |= 0x30;     	// P3.4,5 = USCI_A0 TXD/RXD
 	UCA0CTL1  = UCSSEL_2; 	// SMCLK
 	UCA0BR0   = 0x41;     	// 9600 from 8Mhz
@@ -102,9 +170,18 @@ void Uart_Init(void){
 	IE2      |= UCA0RXIE; 	// Enable USCI_A0 RX interrupt
 }  
 
-/*
-*	send the string to the serial interface 
-*/
+
+/***************************************************************************************
+Function	: void TXString(char* string, int length)
+Description	: send the string to the serial interface 
+Calls		:  
+Called By	: 
+Input		: void
+Output		: print string
+Return		: void
+Others		: 
+***************************************************************************************/
+
 void TXString(char* string, int length)
 {
 	int pointer;
@@ -115,10 +192,18 @@ void TXString(char* string, int length)
 	}
 }
 
-/*
-*	interruption of uart
-*	iteraction with the command typed in
-*/
+/***************************************************************************************
+Function	: void TXString(char* string, int length)
+Description	: interruption of uart
+		  iteraction with the command typed in
+Calls		:  
+Called By	: 
+Input		: void
+Output		: 
+Return		: void
+Others		: 
+***************************************************************************************/
+
 void USCI0RX_ISR(void);
 interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
 {

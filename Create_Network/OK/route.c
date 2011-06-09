@@ -1,17 +1,56 @@
+
+/***************************************************************************************
+Copyright (C), 2011-2012, ENSIMAG.TELECOM 
+File name	: route.c
+Author		: HUANG yongkan & KANJ mahamad
+Version		:
+Date		: 2011-6-6
+Description	: we use a 32b for recording the voisin 
+		  then we use protocol RIP for sharing the router table
+		  here are the functions for manipulations of router table 
+Function List	:  
+		  uint32_t puissance(uint8_t i);					// calcul 2^i
+		  void Init_voisin(volatile Status *s);					// initialisation for 32b of voisin , put itself in
+		  void Add_voisin(volatile Status *s, uint8_t id);			// add id as its voisin
+		  void Delete_voisin(volatile Status *s, uint8_t id);			// delete the voisin id
+		  uint8_t Is_voisin(volatile Status *s, uint8_t dst);			// check if dst is voisin
+		  uint8_t Default_GW(volatile Status *s);				// choose the default gateway	
+		  void Init_route_table(volatile Status *s);				// initialisation for router table
+		  void Add_router(volatile Status *s , uint8_t id, uint32_t voisin);	// add router
+		  uint8_t Find_next_hop(volatile Status *s , uint8_t dst);		// for a dst ,find next hop in the router table 
+		  void Delete_router(volatile Status *s , uint8_t id);			// delete the router
+		  void Show_Online(volatile Status *s);					// print the sensors on line
+		  void Show_router(volatile Status *s);					// print the router table
+		  uint8_t Find_index(uint8_t id ,mPacket *m);				// find index in rip packet
+		  void Update_rip(volatile Status *s ,mPacket *m);			// update router table with rip
+		  void Show_voisin(volatile Status *s);					// print voisin	
+		  void Tidy_table(volatile Status *s);					// clear dirty data in router table	 
+		  void Set_filteredtable(volatile Status *s);				// set filter
+***************************************************************************************/
+
 #include"route.h"
 #include"uart.h"
 #include <string.h> 
 
-/*
-*	we use a 32b for recording the voisin 
-*	then we use protocol RIP for sharing the router table
-*	here are the functions for manipulations of router table 
-*/
+ 
+/***************************************************************************************
+Function	: uint32_t puissance(uint8_t i)
+Description	: calcul 2^i  (16bit mcu dont support 1<<32 very well)
+Calls		:  
+Called By	: void Add_voisin(volatile Status *s, uint8_t id)
+		  void Add_voisin(volatile Status *s, uint8_t id)
+		  void Delete_voisin(volatile Status *s, uint8_t id)
+		  uint8_t Is_voisin(volatile Status *s, uint8_t dst)
+		  uint8_t Default_GW(Status *s)
+		  void Add_router(volatile Status *s , uint8_t id, uint32_t voisin
+Input		: void
+Output		: 
+Return		: 2^i
+Others		: 
+***************************************************************************************/
 
-/*
-*	calcul 2^i
-*/
-uint32_t puissance(uint8_t i){	//i ~ (0,31)
+uint32_t puissance(uint8_t i)
+{ 
 	uint32_t tmp;
 	tmp = 0;
 	if(i < 15){
@@ -23,32 +62,70 @@ uint32_t puissance(uint8_t i){	//i ~ (0,31)
 }
 
 
-/*
-*	initialisation for 32b of voisin , put itself in
-*/
-void Init_voisin(volatile Status *s){
+/***************************************************************************************
+Function	: void Init_voisin(volatile Status *s)
+Description	: initialisation for 32b of voisin , put itself in
+Calls		:  
+Called By	: interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
+		  void Synchrone_Init(uint8_t mac)
+Input		: volatile Status *s
+Output		: 
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Init_voisin(volatile Status *s)
+{
 	s->Voisin = 0;	
 	s->Voisin |= (uint32_t ) puissance(s->MAC - 1);
 }
 
-/*
-*	add id as its voisin
-*/
-void Add_voisin(volatile Status *s, uint8_t id){
+/***************************************************************************************
+Function	: void Add_voisin(volatile Status *s, uint8_t id)
+Description	: add id as its voisin
+Calls		:  
+Called By	: void Add_router(volatile Status *s , uint8_t id, uint32_t voisin)
+Input		: volatile Status *s, uint8_t id
+Output		: 
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Add_voisin(volatile Status *s, uint8_t id)
+{
 	s->Voisin |= (uint32_t ) puissance(id-1);
 }
 
-/*
-*	delete the voisin id
-*/
-void Delete_voisin(volatile Status *s, uint8_t id){
+/***************************************************************************************
+Function	: void Delete_voisin(volatile Status *s, uint8_t id)
+Description	: delete the voisin id
+Calls		:  
+Called By	: interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
+Input		: volatile Status *s
+Output		: delete voisin id
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Delete_voisin(volatile Status *s, uint8_t id)
+{
 	s->Voisin &= (uint32_t ) (puissance(id-1)^0xFFFFFFFF);
 }
 
-/*
-*	check if dst is its voisin
-*/
-uint8_t Is_voisin(volatile Status *s, uint8_t dst){		
+/***************************************************************************************
+Function	: uint8_t Is_voisin(volatile Status *s, uint8_t dst)
+Description	: check if dst is its voisin
+Calls		:  
+Called By	: 
+Input		: volatile Status *s , uint8_t dst
+Output		: 
+Return		: 1  if dst is voisin
+		  0 if dst is not voisin
+Others		: 
+***************************************************************************************/
+
+uint8_t Is_voisin(volatile Status *s, uint8_t dst)
+{		
 	uint32_t  tmp;
 	tmp = puissance(dst-1);
 	if((s->Voisin&tmp)==tmp){
@@ -58,11 +135,20 @@ uint8_t Is_voisin(volatile Status *s, uint8_t dst){
 	}
 }
 
+/***************************************************************************************
+Function	: uint8_t Default_GW(Status *s)
+Description	: return the default gateway , we choose the first one and not itself or return broadcast
+Calls		:  
+Called By	: 
+Input		: volatile Status *s
+Output		: 
+Return		: void
+Others		: 
+***************************************************************************************/
+
 /*
-*	return the default gateway , we choose the first one and not itself or return broadcast
-*/
-/*
-uint8_t Default_GW(Status *s){				
+uint8_t Default_GW(Status *s)
+{				
 	uint32_t  i ,tmp;
 	for(i=0;i<30;i++){
 		tmp = puissance(i);
@@ -74,10 +160,19 @@ uint8_t Default_GW(Status *s){
 }
 */
 
-/*
-*	initialisation for router table
-*/
-void Init_route_table(volatile Status *s){
+/***************************************************************************************
+Function	: void Init_route_table(volatile Status *s)
+Description	: initialisation for router table
+Calls		:  
+Called By	: 
+Input		: volatile Status *s
+Output		: 
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Init_route_table(volatile Status *s)
+{
 	uint8_t i;
 	for(i = 0;i<N_SLOT;i++){
 		if(i == (s->MAC-1)){		//itself
@@ -92,10 +187,19 @@ void Init_route_table(volatile Status *s){
 	}
 }
 
-/*
-*	delete id in the router table
-*/
-void Delete_router(volatile Status *s , uint8_t id){
+/***************************************************************************************
+Function	: void Delete_router(volatile Status *s , uint8_t id)
+Description	: delete id in the router table
+Calls		:  
+Called By	: interrupt(TIMERA0_VECTOR) Timer_Surveille(void)
+Input		: volatile Status *s , uint8_t id
+Output		: delete the dst depends on id
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Delete_router(volatile Status *s , uint8_t id)
+{
 	uint8_t i;
 	for(i=0;i<30;i++){				//delete all nodes who need id as next hop	 
 		if(s->Route_table[i].Next_hop == id){
@@ -106,10 +210,20 @@ void Delete_router(volatile Status *s , uint8_t id){
 	}
 }
 
-/*
-*	get the information of its voisin and update its router table
-*/
-void Add_router(volatile Status *s , uint8_t id, uint32_t voisin){	//after recieving the beacon , update the route table
+/***************************************************************************************
+Function	: void Add_router(volatile Status *s , uint8_t id, uint32_t voisin)
+Description	: get the information of its voisin and update its router table
+		  after recieving the beacon , update the route table
+Calls		:  
+Called By	: void MRFI_RxCompleteISR()
+Input		: volatile Status *s , uint8_t id, uint32_t voisin
+Output		: 
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Add_router(volatile Status *s , uint8_t id, uint32_t voisin)
+{	
 	uint8_t i;
 	uint32_t tmp;
 
@@ -129,10 +243,21 @@ void Add_router(volatile Status *s , uint8_t id, uint32_t voisin){	//after recie
 	}
 }
 
-/*
-*	find th next hop for a certain dst
-*/
-uint8_t Find_next_hop(volatile Status *s , uint8_t dst){			//find the next hop for routing
+
+/***************************************************************************************
+Function	: uint8_t Find_next_hop(volatile Status *s , uint8_t dst)
+Description	: find th next hop for a certain dst
+Calls		:  
+Called By	: void Send_message(volatile Status * s, volatile QList *Q, uint8_t  dst)
+		  void MRFI_RxCompleteISR()
+Input		: volatile Status *s , uint8_t dst
+Output		: 
+Return		: the next_hop
+Others		: 
+***************************************************************************************/
+
+uint8_t Find_next_hop(volatile Status *s , uint8_t dst)
+{		
 	if(s->Route_table[dst-1].Dst == 0){			// it is not in route table
 		return BROADCAST;//Default_GW(s);
 	}else{
@@ -140,10 +265,20 @@ uint8_t Find_next_hop(volatile Status *s , uint8_t dst){			//find the next hop f
 	}
 }
 
-/*
-*	find the index which correspond certain id in the rip packet
-*/
-uint8_t Find_index(uint8_t id ,mPacket *m){			
+/***************************************************************************************
+Function	: uint8_t Find_index(uint8_t id ,mPacket *m)
+Description	: find the index which correspond certain id in the rip packet
+Calls		:  
+Called By	: void Update_rip(volatile Status *s ,mPacket *m)
+Input		: uint8_t id ,mPacket *m
+Output		: 
+Return		: i  if in the packet of rip find the id ,return index	
+		  32 if in the packet of rip ; there is not such id 		
+Others		: 
+***************************************************************************************/
+
+uint8_t Find_index(uint8_t id ,mPacket *m)
+{			
 	uint8_t i;
 	for(i = 0;i<((m->length-10)/3);i++){
 		if(m->payload.route[i].Dst == id){
@@ -153,10 +288,20 @@ uint8_t Find_index(uint8_t id ,mPacket *m){
 	return 32;				//if failed, not exist
 }
 
-/*
-*	with the rip recieved , then update the router table
-*/
-void Update_rip(volatile Status *s ,mPacket *m){
+
+/***************************************************************************************
+Function	: void Update_rip(volatile Status *s ,mPacket *m)
+Description	: with the rip recieved , then update the router table
+Calls		:  
+Called By	: void MRFI_RxCompleteISR()
+Input		: volatile Status *s ,mPacket *m
+Output		: update the router table
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Update_rip(volatile Status *s ,mPacket *m)
+{
 	uint8_t i ,src, index;
 	src = m->src;
 	if(Is_voisin(s,src)){		//only listen to voisin
@@ -174,11 +319,20 @@ void Update_rip(volatile Status *s ,mPacket *m){
 	}
 }
 
+/***************************************************************************************
+Function	: void Set_filteredtable(volatile Status *s)
+Description	: set the adress for filtering
+Calls		:  
+Called By	: 
+Input		: volatile Status *s
+Output		: 
+Return		: void
+Others		: 
+***************************************************************************************/
+
 /*
-*	set the adress for filtering
-*/
-/*
-void Set_filteredtable(volatile Status *s){
+void Set_filteredtable(volatile Status *s)
+{
 	uint8_t i, a;
 	MRFI_DisableRxAddrFilter();
 	for(i=0;i<30;i++){			
@@ -191,10 +345,21 @@ void Set_filteredtable(volatile Status *s){
 }
 */
 
-/*
-*	clear the dirty data in router table
-*/
-void Tidy_table(volatile Status *s){
+
+/***************************************************************************************
+Function	: void Tidy_table(volatile Status *s)
+Description	: clear the dirty data in router table
+Calls		:  
+Called By	: interrupt(TIMERB0_VECTOR) Timer_B0(void)
+		  interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
+Input		: volatile Status *s
+Output		: clear the dirty data in router table
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Tidy_table(volatile Status *s)
+{
 	uint8_t i;
 	for(i=0;i<30;i++){			
 		if(s->Route_table[i].Dst!=0){ 
@@ -208,10 +373,19 @@ void Tidy_table(volatile Status *s){
 }
 
 
-/*
-*	print the sensors who are on line , reachable
-*/
-void Show_Online(volatile Status *s){
+/***************************************************************************************
+Function	: void Show_Online(volatile Status *s)
+Description	: print the sensors who are on line , reachable
+Calls		:  
+Called By	: interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
+Input		: volatile Status *s
+Output		: print the sensors on line
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Show_Online(volatile Status *s)
+{
 	uint8_t i;
 	print("\n\r");
 	for(i=0;i<30;i++){					 
@@ -223,11 +397,20 @@ void Show_Online(volatile Status *s){
 	print("\n\r");
 }
 
-/*
-*	print the voisin
-*/
 
-void Show_voisin(volatile Status *s){
+/***************************************************************************************
+Function	: void Show_voisin(volatile Status *s)
+Description	: print the voisin
+Calls		:  
+Called By	: interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
+Input		: volatile Status *s
+Output		: print the voisin
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Show_voisin(volatile Status *s)
+{
 	uint8_t i;
 	print("Voisin is: \n\r");
 	for(i=0;i<30;i++){		 
@@ -240,10 +423,19 @@ void Show_voisin(volatile Status *s){
 }
 
 
-/*
-*	print the router table
-*/
-void Show_router(volatile Status *s){
+/***************************************************************************************
+Function	: void Show_router(volatile Status *s)
+Description	: print the router table
+Calls		:  
+Called By	: interrupt(USCIAB0RX_VECTOR) USCI0RX_ISR(void)
+Input		: volatile Status *s
+Output		: print the router table
+Return		: void
+Others		: 
+***************************************************************************************/
+
+void Show_router(volatile Status *s)
+{
 	uint8_t i;
 	print("\n\r router table : \n\r");
 	for(i=0;i<30;i++){					 

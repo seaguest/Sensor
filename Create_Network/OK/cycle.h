@@ -10,6 +10,5 @@ void Send_rip(volatile Status * s);
 void Send_message(volatile Status * s, volatile QList *Q, uint8_t  Destination);
 void Recieve_message(volatile Status * s, volatile QList *Q);
 void Sleep(void);
-void print_packet(mrfiPacket_t *p);
 
 #endif
